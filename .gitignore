@@ -1,0 +1,39 @@
+# Ignore everything
+*
+
+# Keep these
+!.gitignore
+!/bot/
+!/client/
+!/server/
+
+# Keep their contents
+!/bot/**
+!/client/**
+!/server/**
+
+# Ignore dependencies & build outputs
+**/node_modules/
+**/dist/
+**/build/
+**/.next/
+**/.cache/
+**/.tmp/
+**/.env
+**/*.log
+**/*.db
+**/*.sqlite*
+**/*.zip
+**/*.tar*
+**/*.exe
+**/*.dll
+**/*.node
+**/*.bak
+backup*/
+temp/
+logs/
+# Allow database dump
+!db/stock.dump
+server/logs/*.log
+temp_clone/
+

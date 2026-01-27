@@ -1,0 +1,133 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "myTradeX" [ref=e6] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e7]:
+        - button "Switch to dark mode" [ref=e8] [cursor=pointer]:
+          - img [ref=e11] [cursor=pointer]
+        - button "EN" [ref=e18] [cursor=pointer]:
+          - img [ref=e19] [cursor=pointer]
+          - generic [ref=e21] [cursor=pointer]: EN
+        - button "Dashboard" [ref=e23] [cursor=pointer]:
+          - img [ref=e24] [cursor=pointer]
+          - generic [ref=e29] [cursor=pointer]: Dashboard
+          - img [ref=e30] [cursor=pointer]
+        - button "Market Data" [ref=e33] [cursor=pointer]:
+          - img [ref=e34] [cursor=pointer]
+          - generic [ref=e38] [cursor=pointer]: Market Data
+          - img [ref=e39] [cursor=pointer]
+        - button "Analysis" [ref=e42] [cursor=pointer]:
+          - img [ref=e43] [cursor=pointer]
+          - generic [ref=e47] [cursor=pointer]: Analysis
+          - img [ref=e48] [cursor=pointer]
+        - button "Advanced" [ref=e51] [cursor=pointer]:
+          - img [ref=e52] [cursor=pointer]
+          - generic [ref=e54] [cursor=pointer]: Advanced
+          - img [ref=e55] [cursor=pointer]
+        - button "Trading" [ref=e58] [cursor=pointer]:
+          - img [ref=e59] [cursor=pointer]
+          - generic [ref=e62] [cursor=pointer]: Trading
+          - img [ref=e63] [cursor=pointer]
+        - button "Community" [ref=e66] [cursor=pointer]:
+          - img [ref=e67] [cursor=pointer]
+          - generic [ref=e72] [cursor=pointer]: Community
+          - img [ref=e73] [cursor=pointer]
+        - link "Plans" [ref=e75] [cursor=pointer]:
+          - /url: /plans
+        - button "Logout" [ref=e76] [cursor=pointer]
+  - main [ref=e77]:
+    - generic [ref=e79]:
+      - generic [ref=e80]:
+        - heading "OpenBB Dashboard" [level=1] [ref=e81]
+        - paragraph [ref=e82]: Real-time market data and financial analytics
+      - generic [ref=e83]:
+        - generic [ref=e84]:
+          - heading "Market Overview" [level=2] [ref=e85]
+          - button "Refresh" [ref=e86] [cursor=pointer]
+        - generic [ref=e88]:
+          - generic [ref=e89]: ⚠️
+          - generic [ref=e90]:
+            - heading "Market data unavailable" [level=3] [ref=e91]
+            - paragraph [ref=e92]: Request failed with status code 404
+          - button "Retry" [ref=e93] [cursor=pointer]
+      - generic [ref=e94]:
+        - generic [ref=e95]:
+          - heading "Stock Prices" [level=2] [ref=e96]
+          - generic [ref=e98]:
+            - generic [ref=e99]: ⚠️
+            - generic [ref=e100]:
+              - heading "Price data unavailable" [level=3] [ref=e101]
+              - paragraph [ref=e102]: Request failed with status code 404
+            - button "Retry" [ref=e103] [cursor=pointer]
+        - generic [ref=e104]:
+          - generic [ref=e105]:
+            - heading "Fundamentals" [level=2] [ref=e106]
+            - combobox [ref=e107]:
+              - option "BBCA - Bank Central Asia" [selected]
+              - option "TLKM - Telekomunikasi Indonesia"
+              - option "ASII - Astra International"
+              - option "BMRI - Bank Mandiri"
+              - option "BBNI - Bank Negara Indonesia"
+              - option "AAPL - Apple Inc."
+              - option "MSFT - Microsoft Corporation"
+              - option "GOOGL - Alphabet Inc."
+          - generic [ref=e109]:
+            - generic [ref=e110]: ⚠️
+            - generic [ref=e111]:
+              - heading "Fundamentals data unavailable" [level=3] [ref=e112]
+              - paragraph [ref=e113]: Request failed with status code 404
+            - button "Retry" [ref=e114] [cursor=pointer]
+      - generic [ref=e115]:
+        - generic [ref=e116]:
+          - heading "Technical Chart" [level=2] [ref=e117]
+          - generic [ref=e118]:
+            - combobox [ref=e119]:
+              - option "BBCA - Bank Central Asia" [selected]
+              - option "TLKM - Telekomunikasi Indonesia"
+              - option "ASII - Astra International"
+              - option "BMRI - Bank Mandiri"
+              - option "BBNI - Bank Negara Indonesia"
+              - option "AAPL - Apple Inc."
+              - option "MSFT - Microsoft Corporation"
+              - option "GOOGL - Alphabet Inc."
+            - combobox [ref=e120]:
+              - option "7 Days"
+              - option "30 Days" [selected]
+              - option "90 Days"
+              - option "180 Days"
+            - button "Refresh" [ref=e121] [cursor=pointer]
+        - generic [ref=e123]:
+          - generic [ref=e124]: ⚠️
+          - generic [ref=e125]:
+            - heading "Chart data unavailable" [level=3] [ref=e126]
+            - paragraph [ref=e127]: Request failed with status code 404
+          - button "Retry" [ref=e128] [cursor=pointer]
+      - generic [ref=e129]:
+        - generic [ref=e130]:
+          - heading "Market Analytics" [level=2] [ref=e131]
+          - generic [ref=e132]:
+            - combobox [ref=e133]:
+              - option "BBCA - Bank Central Asia" [selected]
+              - option "TLKM - Telekomunikasi Indonesia"
+              - option "ASII - Astra International"
+              - option "BMRI - Bank Mandiri"
+              - option "BBNI - Bank Negara Indonesia"
+              - option "AAPL - Apple Inc."
+              - option "MSFT - Microsoft Corporation"
+              - option "GOOGL - Alphabet Inc."
+            - button "Refresh" [ref=e134] [cursor=pointer]
+        - generic [ref=e136]:
+          - generic [ref=e137]: ⚠️
+          - generic [ref=e138]:
+            - heading "Analytics data unavailable" [level=3] [ref=e139]
+            - paragraph [ref=e140]: Request failed with status code 404
+          - button "Retry" [ref=e141] [cursor=pointer]
+  - contentinfo [ref=e142]:
+    - generic [ref=e143]:
+      - generic [ref=e144]: © 2025 myTradeX
+      - generic [ref=e145]: Made for investors — AI Trading Platform Indonesia
+```

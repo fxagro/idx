@@ -1,0 +1,16 @@
+{"level":"error","message":"Failed to load database module:","service":"stock-dashboard-api","timestamp":"2026-01-27 09:49:09"}
+{"level":"error","message":"❌ Database connection failed after all retries","service":"stock-dashboard-api","timestamp":"2026-01-27 09:49:13"}
+{"level":"error","message":"Failed to load database module:","service":"stock-dashboard-api","timestamp":"2026-01-27 09:57:16"}
+{"level":"error","message":"❌ Database connection failed after all retries","service":"stock-dashboard-api","timestamp":"2026-01-27 09:57:20"}
+{"level":"error","message":"Failed to load database module:","service":"stock-dashboard-api","timestamp":"2026-01-27 10:25:38"}
+{"level":"error","message":"❌ Database connection failed after all retries","service":"stock-dashboard-api","timestamp":"2026-01-27 10:25:42"}
+{"level":"error","message":"Failed to load database module:","service":"stock-dashboard-api","timestamp":"2026-01-27 10:44:17"}
+{"level":"error","message":"❌ Database connection failed after all retries","service":"stock-dashboard-api","timestamp":"2026-01-27 10:44:21"}
+{"level":"error","message":"Failed to load database module:","service":"stock-dashboard-api","timestamp":"2026-01-27 10:57:53"}
+{"level":"error","message":"❌ Database connection failed after all retries","service":"stock-dashboard-api","timestamp":"2026-01-27 10:57:57"}
+{"level":"error","message":"Failed to load database module:","service":"stock-dashboard-api","timestamp":"2026-01-27 10:58:06"}
+{"level":"error","message":"❌ Database connection failed after all retries","service":"stock-dashboard-api","timestamp":"2026-01-27 10:58:10"}
+{"level":"error","message":"Failed to load database module:","service":"stock-dashboard-api","timestamp":"2026-01-27 11:02:34"}
+{"level":"error","message":"❌ Database connection failed after all retries","service":"stock-dashboard-api","timestamp":"2026-01-27 11:02:38"}
+{"level":"error","message":"Failed to load database module:","service":"stock-dashboard-api","timestamp":"2026-01-27 11:12:26"}
+{"level":"error","message":"❌ Database connection failed after all retries","service":"stock-dashboard-api","timestamp":"2026-01-27 11:12:30"}

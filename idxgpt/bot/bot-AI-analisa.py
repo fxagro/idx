@@ -1,0 +1,4727 @@
+import asyncio
+import os
+import json
+import requests
+import re  # Tambahkan ini
+import logging
+import tempfile
+from aiogram import Bot, Dispatcher, Router
+from aiogram.types import Message, FSInputFile
+from aiogram.filters import Command, CommandStart
+from aiogram.fsm.context import FSMContext
+from aiogram.types import BufferedInputFile
+from aiogram.fsm.state import State, StatesGroup
+import psycopg2
+from psycopg2 import sql
+from datetime import datetime
+from PIL import Image, ImageDraw, ImageFont
+import pandas as pd  # Tambahkan import pandas untuk perhitungan MACD
+from datetime import datetime, timedelta  # Tambahkan impor timedelta
+import numpy as np  # Untuk log returns dan calculations
+from sqlalchemy import create_engine
+from datetime import date
+import re
+import matplotlib.dates as mdates
+import mplfinance as mpf
+from openai import OpenAI
+from io import BytesIO
+from aiogram import Bot, Dispatcher
+from aiohttp import ClientSession, TCPConnector
+
+
+def calculate_volatility_and_drawdown(df, period=90):
+    if len(df) < 2:
+        return None, None, None, None, None, None
+    
+    df = df.sort_values('Date').tail(period)  # Ambil periode terakhir
+    df['Return'] = np.log(df['Close'] / df['Close'].shift(1))
+    volatility = df['Return'].std() * np.sqrt(252) * 100  # Annualized volatility (%)
+    
+    # Max Drawdown
+    df['CumMax'] = df['Close'].cummax()
+    df['Drawdown'] = (df['CumMax'] - df['Close']) / df['CumMax'] * 100
+    max_drawdown = df['Drawdown'].max()
+    
+    # Max Gain/Loss and Dates
+    max_gain = df['Return'].max() * 100
+    max_gain_date = df.loc[df['Return'].idxmax(), 'Date'].strftime('%Y-%m-%d')
+    max_loss = df['Return'].min() * 100
+    max_loss_date = df.loc[df['Return'].idxmin(), 'Date'].strftime('%Y-%m-%d')
+    
+    adr = ((df['High'] - df['Low']) / df['Close'] * 100).mean()
+    avg_volume = df['Volume'].mean()
+    
+    return volatility, max_drawdown, max_gain, max_gain_date, max_loss, max_loss_date, adr, avg_volume
+
+def classify_stock(volatility, avg_volume, threshold_vol=5, threshold_vol_mid=2, threshold_volume=1000000):
+    if volatility > threshold_vol and avg_volume > threshold_volume:
+        return "Aktif (Bagus untuk HFT)"
+    elif volatility > threshold_vol_mid:
+        return "Pasif"
+    else:
+        return "Tidur"
+
+# Konfigurasi logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('bot.log'),  # Simpan log ke file bot.log
+        logging.StreamHandler()  # Tampilkan log ke console
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Konfigurasi koneksi PostgreSQL
+db_config = {
+    'dbname': 'stock',
+    'user': 'openpg',
+    'password': 'openpgpwd',
+    'host': 'localhost',
+    'port': '5432'
+}
+
+# SQLAlchemy engine
+engine = create_engine(
+    f"postgresql+psycopg2://{db_config['user']}:{db_config['password']}@{db_config['host']}:{db_config['port']}/{db_config['dbname']}"
+)
+
+
+# Token bot Telegram (dari BotFather)
+BOT_TOKEN = "6194293517:AAHXX-cJFjXOlQ6KN3gfl1OBRFhKFljr_jo"
+
+# Fungsi untuk memformat nilai ke M, B, atau T
+def format_value(value):
+    if value is None:
+        return "0"
+    value = float(value)
+    if value >= 1_000_000_000_000:  # Triliun
+        return f"{value / 1_000_000_000_000:.2f} T"
+    elif value >= 1_000_000_000:  # Miliar
+        return f"{value / 1_000_000_000:.2f} B"
+    elif value >= 1_000_000:  # Juta
+        return f"{value / 1_000_000:.2f} M"
+    else:
+        return f"{value:,.0f}"
+
+# Asumsi logger sudah dikonfigurasi
+logger = logging.getLogger(__name__)
+
+def create_table_image(data, title, penutupan=None, is_gainer=True, is_accum=False, is_index=False, is_macd=False, is_period=False, is_bandar=False, is_broker=False):
+    if is_accum:
+        cell_widths = [100, 300, 150, 120, 150, 150, 150]
+    elif is_period:
+        cell_widths = [100, 300, 150, 120, 120, 150, 150]
+    elif is_bandar:
+        cell_widths = [100, 80, 100, 80, 80, 80, 100, 80, 80, 100, 100]
+    elif is_broker:
+        cell_widths = [100, 300, 150, 150, 150]
+    else:
+        cell_widths = [100, 300, 150, 120, 150, 150]
+    cell_height = 35
+    header_height = 40
+    footer_height = 30
+    font_size = 12
+    font_path = "arial.ttf"
+    max_rows_per_image = 20
+    try:
+        font = ImageFont.truetype(font_path, font_size)
+    except:
+        font = ImageFont.load_default()
+        logger.warning("Font arial.ttf tidak ditemukan, menggunakan font default")
+
+    image_files = []
+    for chunk_start in range(0, len(data), max_rows_per_image):
+        chunk = data[chunk_start:chunk_start + max_rows_per_image]
+        
+        if is_bandar:
+            cell_widths = [100, 80, 100, 80, 80, 80, 100, 80, 80, 100, 100]
+            temp_image = Image.new('RGB', (1, 1), 'white')
+            temp_draw = ImageDraw.Draw(temp_image)
+            for row in chunk:
+                try:
+                    kode_broker, nama_broker, jenis_broker, buy_freq, buy_vol, sell_freq, sell_vol, net_vol, buy_avg, sell_avg = row
+                except ValueError:
+                    logger.error(f"Row data tidak sesuai: {row}")
+                    continue
+                total_buy_freq = sum(r[3] for r in data if r[3] is not None)
+                total_sell_freq = sum(r[5] for r in data if r[5] is not None)
+                buy_percent = (buy_freq / total_buy_freq * 100) if total_buy_freq > 0 else 0
+                sell_percent = (sell_freq / total_sell_freq * 100) if total_sell_freq > 0 else 0
+                net_vol_float = float(net_vol) if net_vol is not None else 0.0
+                penutupan_float = float(penutupan) if penutupan is not None else 0.0
+                net_value = net_vol_float * penutupan_float * 100
+                row_data = [
+                    kode_broker,
+                    str(buy_freq) if buy_freq is not None else '-',
+                    f"{buy_vol:,}" if buy_vol is not None else '-',
+                    f"{buy_avg:.2f}" if buy_avg is not None else '-',
+                    f"{buy_percent:.2f}",
+                    str(sell_freq) if sell_freq is not None else '-',
+                    f"{sell_vol:,}" if sell_vol is not None else '-',
+                    f"{sell_avg:.2f}" if sell_avg is not None else '-',
+                    f"{sell_percent:.2f}",
+                    f"{net_vol:,}" if net_vol is not None else '-',
+                    format_value(net_value)
+                ]
+                for i, cell in enumerate(row_data):
+                    text_length = temp_draw.textlength(str(cell), font=font) + 20
+                    cell_widths[i] = max(cell_widths[i], int(text_length))
+        elif is_broker:
+            cell_widths = [100, 300, 150, 150, 150]
+            temp_image = Image.new('RGB', (1, 1), 'white')
+            temp_draw = ImageDraw.Draw(temp_image)
+            for row in chunk:
+                try:
+                    kode_saham, nama_perusahaan, net_vol, net_value = row
+                except ValueError:
+                    logger.error(f"Row data tidak sesuai: {row}")
+                    continue
+                row_data = [
+                    kode_saham,
+                    nama_perusahaan[:30] + "..." if len(nama_perusahaan) > 30 else nama_perusahaan,
+                    f"{net_vol:,}",
+                    format_value(net_value)
+                ]
+                for i, cell in enumerate(row_data):
+                    text_length = temp_draw.textlength(str(cell), font=font) + 20
+                    cell_widths[i] = max(cell_widths[i], int(text_length))
+        
+        width = int(sum(cell_widths))
+        height = int(header_height + len(chunk) * cell_height + footer_height + 40)
+        image = Image.new('RGB', (width, height), 'white')
+        draw = ImageDraw.Draw(image)
+
+        draw.text((10, 10), f"{title} (Bagian {chunk_start // max_rows_per_image + 1})", fill='black', font=font)
+
+        if is_period:
+            headers = ["Ticker", "Company Name", "Change (%)", "Close", "Open", "Volume", "Value (Rp)"]
+        elif is_accum:
+            headers = ["Ticker", "Company Name", "Net Foreign (Rp)", "Foreign Buy", "Foreign Sell", "Volume", "Value (Rp)"]
+        elif is_index:
+            headers = ["Index", "Index Name", "Change (%)", "Close", "Volume", "Value (Rp)"]
+        elif is_macd:
+            headers = ["Ticker", "Company Name", "Change (%)", "Close", "Cross Type", "Volume", "Value (Rp)"]
+        elif is_bandar:
+            headers = ["Broker", "Buy Freq", "Buy Vol", "Buy Avg", "Buy %", "Sell Freq", "Sell Vol", "Sell Avg", "Sell %", "Net Vol", "Net Val"]
+        elif is_broker:
+            headers = ["Ticker", "Company Name", "Net Vol", "Net Value"]
+        else:
+            headers = ["Ticker", "Company Name", "Change (%)", "Close", "Volume", "Value (Rp)"]
+        y = 30
+        x = 0
+        for i, header in enumerate(headers):
+            draw.rectangle([(int(x), int(y)), (int(x + cell_widths[i]), int(y + header_height))], outline='black', fill='lightgray')
+            draw.text((int(x + 5), int(y + 10)), header, fill='black', font=font)
+            x += cell_widths[i]
+
+        y += header_height
+        for row in chunk:
+            if is_period:
+                kode_saham, nama_perusahaan, persentase, penutupan, open_price, volume, nilai = row
+                row_data = [
+                    kode_saham,
+                    nama_perusahaan[:30] + "..." if len(nama_perusahaan) > 30 else nama_perusahaan,
+                    f"{persentase:.2f}%" if isinstance(persentase, (int, float)) else persentase,
+                    f"{penutupan:.2f}" if isinstance(penutupan, (int, float)) else penutupan,
+                    f"{open_price:.2f}" if isinstance(open_price, (int, float)) else open_price,
+                    f"{volume:,}" if isinstance(volume, (int, float)) else volume,
+                    format_value(nilai)
+                ]
+            elif is_accum:
+                kode_saham, nama_perusahaan, net_foreign, foreign_buy, foreign_sell, volume, nilai = row
+                row_data = [
+                    kode_saham,
+                    nama_perusahaan[:30] + "..." if len(nama_perusahaan) > 30 else nama_perusahaan,
+                    format_value(net_foreign),
+                    format_value(foreign_buy),
+                    format_value(foreign_sell),
+                    f"{volume:,}",
+                    format_value(nilai)
+                ]
+            elif is_macd:
+                kode_saham, nama_perusahaan, persentase, penutupan, cross_type, volume, nilai = row
+                row_data = [
+                    kode_saham,
+                    nama_perusahaan[:30] + "..." if len(nama_perusahaan) > 30 else nama_perusahaan,
+                    f"{persentase:.2f}%" if isinstance(persentase, (int, float)) else persentase,
+                    f"{penutupan:.2f}" if isinstance(penutupan, (int, float)) else penutupan,
+                    cross_type,
+                    f"{volume:,}" if isinstance(volume, (int, float)) else volume,
+                    format_value(nilai)
+                ]
+            elif is_bandar:
+                try:
+                    kode_broker, nama_broker, jenis_broker, buy_freq, buy_vol, sell_freq, sell_vol, net_vol, buy_avg, sell_avg = row
+                except ValueError:
+                    logger.error(f"Row data tidak sesuai: {row}")
+                    continue
+                total_buy_freq = sum(r[3] for r in data if r[3] is not None)
+                total_sell_freq = sum(r[5] for r in data if r[5] is not None)
+                buy_percent = (buy_freq / total_buy_freq * 100) if total_buy_freq > 0 else 0
+                sell_percent = (sell_freq / total_sell_freq * 100) if total_sell_freq > 0 else 0
+                net_vol_float = float(net_vol) if net_vol is not None else 0.0
+                penutupan_float = float(penutupan) if penutupan is not None else 0.0
+                net_value = net_vol_float * penutupan_float * 100
+                row_data = [
+                    kode_broker,
+                    str(buy_freq) if buy_freq is not None else '-',
+                    f"{buy_vol:,}" if buy_vol is not None else '-',
+                    f"{buy_avg:.2f}" if buy_avg is not None else '-',
+                    f"{buy_percent:.2f}",
+                    str(sell_freq) if sell_freq is not None else '-',
+                    f"{sell_vol:,}" if sell_vol is not None else '-',
+                    f"{sell_avg:.2f}" if sell_avg is not None else '-',
+                    f"{sell_percent:.2f}",
+                    f"{net_vol:,}" if net_vol is not None else '-',
+                    format_value(net_value)
+                ]
+            elif is_broker:
+                try:
+                    kode_saham, nama_perusahaan, net_vol, net_value = row
+                except ValueError:
+                    logger.error(f"Row data tidak sesuai: {row}")
+                    continue
+                row_data = [
+                    kode_saham,
+                    nama_perusahaan[:30] + "..." if len(nama_perusahaan) > 30 else nama_perusahaan,
+                    f"{net_vol:,}",
+                    format_value(net_value)
+                ]
+            else:
+                kode_saham, nama_perusahaan, penutupan, selisih, sebelumnya, volume, nilai = row
+                persentase = (selisih / sebelumnya * 100) if sebelumnya else 0
+                row_data = [
+                    kode_saham,
+                    nama_perusahaan[:30] + "..." if len(nama_perusahaan) > 30 else nama_perusahaan,
+                    f"{persentase:.2f}%",
+                    f"{penutupan:.2f}" if isinstance(penutupan, (int, float)) else penutupan,
+                    f"{volume:,}" if isinstance(volume, (int, float)) else volume,
+                    format_value(nilai)
+                ]
+            x = 0
+            if is_bandar:
+                jenis_lower = jenis_broker.lower()
+                if jenis_lower == 'asing':
+                    fill_color = '#F08080'
+                elif jenis_lower == 'bumn':
+                    fill_color = '#FFFF99'
+                elif jenis_lower == 'lokal retail':
+                    fill_color = '#90EE90'
+                else:
+                    fill_color = 'white'
+                net_vol_color = '#006400' if net_vol > 0 else '#8B0000' if net_vol < 0 else 'black'
+                net_val_color = '#006400' if net_value > 0 else '#8B0000' if net_value < 0 else 'black'
+                fill_colors = [fill_color] * 9 + [net_vol_color, net_val_color]
+                text_colors = ['black'] * 9 + ['white', 'white']
+            elif is_broker:
+                fill_color = '#90EE90' if net_vol > 0 else '#F08080' if net_vol < 0 else 'white'
+                net_val_color = '#006400' if net_value > 0 else '#8B0000' if net_value < 0 else 'black'
+                fill_colors = ['white', 'white', fill_color, net_val_color]
+                text_colors = ['black', 'black', 'black', 'white']
+            else:
+                if (is_period and i == 2) or (is_macd and i == 2) or (not is_accum and not is_period and not is_macd and i == 2):
+                    try:
+                        persentase_val = float(cell.strip('%')) if isinstance(cell, str) and '%' in cell else 0
+                        fill_color = 'lightgreen' if persentase_val > 0 else 'salmon' if persentase_val < 0 else 'white'
+                    except (ValueError, TypeError):
+                        fill_color = 'white'
+                elif is_macd and i == 4:
+                    fill_color = 'lightgreen' if cell == 'Bullish' else 'salmon' if cell == 'Bearish' else 'white'
+                elif is_accum and i == 2:
+                    fill_color = 'lightgreen' if 'Accum' in title else 'salmon' if 'Sell' in title else 'white'
+                else:
+                    fill_color = 'white'
+                text_color = 'black'
+                fill_colors = [fill_color] * len(row_data)
+                text_colors = [text_color] * len(row_data)
+
+            for i, cell in enumerate(row_data):
+                draw.rectangle([(int(x), int(y)), (int(x + cell_widths[i]), int(y + cell_height))], outline='black', fill=fill_colors[i])
+                draw.text((int(x + 5), int(y + 10)), str(cell), fill=text_colors[i], font=font)
+                x += cell_widths[i]
+            y += cell_height
+
+        draw.text((10, int(y + 10)), "Created by bisnis-it.com/saham", fill='black', font=font)
+
+        with tempfile.NamedTemporaryFile(suffix=f"_part_{chunk_start // max_rows_per_image + 1}.png", delete=False) as temp_file:
+            temp_file_path = temp_file.name
+            image.save(temp_file_path, format="PNG")
+            if os.path.exists(temp_file_path):
+                image_files.append(temp_file_path)
+                logger.info(f"Gambar sementara {temp_file_path} dibuat untuk {len(chunk)} baris")
+            else:
+                logger.error(f"Gagal membuat gambar sementara {temp_file_path}")
+                raise FileNotFoundError(f"Gagal membuat gambar sementara {temp_file_path}")
+
+    return image_files
+
+def format_value(value):
+    """Format angka ke string dengan satuan (M, B, T)."""
+    if value is None:
+        return "0"
+    abs_value = abs(value)
+    sign = '-' if value < 0 else ''
+    if abs_value >= 1_000_000_000_000:
+        return f"{sign}{abs_value / 1_000_000_000_000:.2f}T"
+    elif abs_value >= 1_000_000_000:
+        return f"{sign}{abs_value / 1_000_000_000:.2f}B"
+    elif abs_value >= 1_000_000:
+        return f"{sign}{abs_value / 1_000_000:.2f}M"
+    return f"{sign}{abs_value:,}"
+
+
+# Inisialisasi router untuk handler
+router = Router()
+
+# Handler untuk perintah /start
+@router.message(CommandStart())
+async def cmd_start(message: Message) -> None:
+    first_name = message.from_user.first_name
+    last_name = message.from_user.last_name or ""
+    user_id = message.from_user.id
+    logger.info(f"Perintah /start diterima dari user_id: {user_id}, nama: {first_name} {last_name}")
+    await message.answer(f"Halo, {first_name} {last_name}! Selamat datang di Bot Saham.\n"
+                        f"Gunakan /help untuk melihat daftar perintah.")
+
+@router.message(Command("help"))
+async def cmd_help(message: Message) -> None:
+    user_id = message.from_user.id
+    logger.info(f"Perintah /help diterima dari user_id: {user_id}")
+    help_text = (
+        "Panduan penggunaan Bot Saham:\n"
+        "/start - Memulai bot\n"
+        "/help - Menampilkan panduan ini\n"
+        "/getdata [Kode Saham] [Tanggal] - Mengambil data saham\n"
+        "  Contoh: /getdata BBCA 2025-08-14 atau /getdata BBCA\n"
+        "/tg [yyyy-mm-dd] - Menampilkan Top 30 Gainers untuk tanggal tertentu\n"
+        "  Contoh: /tg 2025-08-14 atau /tg\n"
+        "/tl [yyyy-mm-dd] - Menampilkan Top 30 Losers untuk tanggal tertentu\n"
+        "  Contoh: /tl 2025-08-14 atau /tl\n"
+        "/fa [yyyy-mm-dd] - Menampilkan semua Top Foreign Accumulation untuk tanggal tertentu\n"
+        "  Contoh: /fa 2025-08-14 atau /fa\n"
+        "/fs [yyyy-mm-dd] - Menampilkan semua Top Foreign Sell untuk tanggal tertentu\n"
+        "  Contoh: /fs 2025-08-14 atau /fs\n"
+        "/bandar [Kode Saham] [yyyy-mm-dd] [jumlah_hari] - Menampilkan data bandar untuk saham tertentu\n"
+        "  Contoh: /bandar BBCA 2025-08-14 7 atau /bandar BBCA 2025-08-14\n"
+        "/broker [yyyy-mm-dd] - Menampilkan data broker untuk tanggal tertentu\n"
+        "  Contoh: /broker 2025-08-14\n"
+        "/broker [Kode Broker] [yyyy-mm-dd] [jumlah_hari] - Menampilkan 10 saham terakumulasi oleh broker\n"
+        "  Contoh: /broker AK 2025-08-14 3\n"
+    )
+    await message.answer(help_text)
+
+@router.message(Command("broker"))
+async def cmd_broker(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:] if len(message.text.split()) > 1 else []
+    logger.info(f"Perintah /broker diterima dari user_id: {user_id} dengan args: {args}")
+
+    try:
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+
+        # Default tanggal adalah hari ini
+        today = datetime.now().date()
+        jumlah_hari = 30  # Default jumlah hari jika tidak ditentukan
+
+        if len(args) == 1:
+            # Format: /broker yyyy-mm-dd
+            try:
+                input_date = datetime.strptime(args[0], '%Y-%m-%d').date()
+            except ValueError:
+                await message.answer("Format tanggal tidak valid. Gunakan yyyy-mm-dd, contoh: /broker 2025-08-14")
+                return
+            query = sql.SQL("""
+                SELECT kode_broker, nama_perusahaan, volume, nilai, frekuensi
+                FROM broker_data
+                WHERE tanggal = %s
+                ORDER BY nilai DESC
+            """)
+            cur.execute(query, (input_date,))
+            results = cur.fetchall()
+            if not results:
+                await message.answer(f"Tidak ada data broker untuk tanggal {input_date}.")
+                return
+            title = f"Data Broker pada {input_date}"
+            data = [(r[0], r[1], float(r[2]), float(r[3]), r[4]) for r in results]
+            image_files = create_table_image(data, title, is_broker=True)
+            for image_file in image_files:
+                await message.answer_photo(FSInputFile(image_file))
+                os.remove(image_file)
+            return
+
+        elif len(args) in [2, 3]:
+            # Format: /broker xx yyyy-mm-dd [jumlah_hari]
+            kode_broker = args[0].upper()
+            try:
+                input_date = datetime.strptime(args[1], '%Y-%m-%-dd').date()
+            except ValueError:
+                await message.answer("Format tanggal tidak valid. Gunakan yyyy-mm-dd, contoh: /broker AK 2025-08-14")
+                return
+            if len(args) == 3:
+                try:
+                    jumlah_hari = int(args[2])
+                    if jumlah_hari <= 0:
+                        raise ValueError
+                except ValueError:
+                    await message.answer("Jumlah hari harus berupa angka positif. Contoh: /broker AK 2025-08-14 3")
+                    return
+            start_date = input_date - timedelta(days=jumlah_hari - 1)
+            
+            # Cek apakah tabel broker_data ada
+            table_name = sql.Identifier(f"{kode_broker}_data")
+            query_check = sql.SQL("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = %s)")
+            cur.execute(query_check, (f"{kode_broker}_data",))
+            table_exists = cur.fetchone()[0]
+            if not table_exists:
+                await message.answer(f"Tidak ada data untuk broker {kode_broker}.")
+                return
+            
+            # Query untuk mendapatkan 10 saham terakumulasi
+            query = sql.SQL("""
+                SELECT b.kode_saham, s.nama_perusahaan, SUM(b.net_vol) as net_vol, 
+                       SUM(b.net_vol * s."Penutupan") as net_value
+                FROM {} b
+                JOIN saham_data s ON b.kode_saham = s."Kode" AND b.tanggal = s."Tanggal"
+                WHERE b.tanggal BETWEEN %s AND %s
+                GROUP BY b.kode_saham, s.nama_perusahaan
+                HAVING SUM(b.net_vol) > 0
+                ORDER BY net_value DESC
+                LIMIT 10
+            """).format(table_name)
+            cur.execute(query, (start_date, input_date))
+            results = cur.fetchall()
+            if not results:
+                await message.answer(f"Tidak ada saham yang diakumulasi oleh broker {kode_broker} untuk periode {start_date} sampai {input_date}.")
+                return
+            title = f"Top 10 Saham Akumulasi Broker {kode_broker} ({start_date} sampai {input_date})"
+            data = [(r[0], r[1], float(r[2]), float(r[3])) for r in results]
+            image_files = create_table_image(data, title, is_broker=True)
+            for image_file in image_files:
+                await message.answer_photo(FSInputFile(image_file))
+                os.remove(image_file)
+            return
+
+        else:
+            await message.answer("Format perintah salah. Gunakan:\n"
+                                "/broker [yyyy-mm-dd] atau\n"
+                                "/broker [Kode Broker] [yyyy-mm-dd] [jumlah_hari]\n"
+                                "Contoh: /broker 2025-08-14 atau /broker AK 2025-08-14 3")
+            return
+
+    except Exception as e:
+        logger.error(f"Error menjalankan /broker: {str(e)}")
+        await message.answer("Terjadi kesalahan saat memproses perintah. Silakan coba lagi.")
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+# Handler untuk perintah /getdata
+@router.message(Command("getdata"))
+async def cmd_getdata(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /getdata
+    logger.info(f"Perintah /getdata diterima dari user_id: {user_id}, argumen: {args}")
+    
+    if not args:
+        logger.warning(f"Argumen kosong untuk /getdata dari user_id: {user_id}")
+        await message.answer("Silakan masukkan Kode Saham. Contoh: /getdata BBCA atau /getdata BBCA 2025-08-14")
+        return
+
+    kode_saham = args[0].upper()
+    tanggal = args[1] if len(args) > 1 else None
+    
+    if tanggal:
+        try:
+            datetime.strptime(tanggal, '%Y-%m-%d')
+        except ValueError:
+            logger.error(f"Format tanggal salah: {tanggal} dari user_id: {user_id}")
+            await message.answer("Format tanggal salah. Gunakan YYYY-MM-DD, misalnya: 2025-08-14")
+            return
+
+    try:
+        logger.info(f"Membuka koneksi database untuk query /getdata: {kode_saham}, {tanggal}")
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+    except Exception as e:
+        logger.error(f"Error koneksi ke database: {e}")
+        await message.answer(f"Error koneksi ke database: {e}")
+        return
+
+    try:
+        if tanggal:
+            query = sql.SQL('''
+            SELECT * FROM {table}
+            WHERE "Kode Saham" = %s AND "Tanggal Perdagangan Terakhir" = %s
+            ''').format(table=sql.Identifier('saham_data'))
+            cur.execute(query, (kode_saham, tanggal))
+        else:
+            query = sql.SQL('''
+            SELECT * FROM {table}
+            WHERE "Kode Saham" = %s
+            ORDER BY "Tanggal Perdagangan Terakhir" DESC
+            LIMIT 1
+            ''').format(table=sql.Identifier('saham_data'))
+            cur.execute(query, (kode_saham,))
+
+        result = cur.fetchone()
+        if result:
+            columns = [desc[0] for desc in cur.description]
+            data = dict(zip(columns, result))
+            response = (
+                f"Data Saham untuk {kode_saham}:\n"
+                f"Tanggal Perdagangan: {data['Tanggal Perdagangan Terakhir']}\n"
+                f"Nama Perusahaan: {data['Nama Perusahaan']}\n"
+                f"Penutupan: {data['Penutupan']}\n"
+                f"Volume: {data['Volume']}\n"
+                f"Nilai: {format_value(data['Nilai'])}\n"
+                f"Frekuensi: {data['Frekuensi']}\n"
+                f"Tertinggi: {data['Tertinggi']}\n"
+                f"Terendah: {data['Terendah']}"
+            )
+            logger.info(f"Data ditemukan untuk Kode Saham: {kode_saham}, Tanggal: {tanggal or 'terbaru'}")
+            await message.answer(response)
+        else:
+            logger.warning(f"Tidak ditemukan data untuk Kode Saham: {kode_saham}, Tanggal: {tanggal or 'terbaru'}")
+            await message.answer(f"Tidak ditemukan data untuk Kode Saham '{kode_saham}'"
+                                f"{'' if not tanggal else f' pada tanggal {tanggal}'}.")
+    except Exception as e:
+        logger.error(f"Error saat mengambil data: {e}")
+        await message.answer(f"Error saat mengambil data: {e}")
+    finally:
+        cur.close()
+        conn.close()
+        logger.info("Koneksi database ditutup")
+
+@router.message(Command("tg"))
+async def cmd_top_gainers(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /tg
+    logger.info(f"Perintah /tg diterima dari user_id: {user_id}, argumen: {args}")
+    
+    tanggal = None
+    jumlah_hari = None
+    
+    # Parsing argumen
+    if len(args) == 1:
+        try:
+            jumlah_hari = int(args[0])  # Coba parse sebagai jumlah hari
+            if jumlah_hari <= 0:
+                raise ValueError("Jumlah hari harus lebih dari 0")
+        except ValueError:
+            try:
+                datetime.strptime(args[0], '%Y-%m-%d')  # Coba parse sebagai tanggal
+                tanggal = args[0]
+                jumlah_hari = 1  # Default ke harian jika hanya tanggal
+            except ValueError:
+                logger.error(f"Argumen tidak valid: {args[0]} dari user_id: {user_id}")
+                await message.answer("Argumen tidak valid. Gunakan /tg [yyyy-mm-dd] atau /tg <jumlah_hari>, misalnya: /tg 2025-08-14 atau /tg 100")
+                return
+    elif len(args) == 2:
+        try:
+            datetime.strptime(args[0], '%Y-%m-%d')
+            tanggal = args[0]
+            jumlah_hari = int(args[1])
+            if jumlah_hari <= 0:
+                raise ValueError("Jumlah hari harus lebih dari 0")
+        except ValueError:
+            logger.error(f"Argumen tidak valid: {args} dari user_id: {user_id}")
+            await message.answer("Argumen tidak valid. Gunakan /tg yyyy-mm-dd <jumlah_hari>, misalnya: /tg 2025-08-14 100")
+            return
+    else:
+        jumlah_hari = 1  # Default ke harian jika tidak ada argumen
+
+    try:
+        logger.info(f"Membuka koneksi database untuk query /tg: tanggal={tanggal}, jumlah_hari={jumlah_hari}")
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+    except Exception as e:
+        logger.error(f"Error koneksi ke database: {e}")
+        await message.answer(f"Error koneksi ke database: {e}")
+        return
+
+    try:
+        # Ambil tanggal terbaru jika tidak ada tanggal
+        if not tanggal:
+            query = sql.SQL('SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table}').format(table=sql.Identifier('saham_data'))
+            cur.execute(query)
+            max_date = cur.fetchone()[0]
+            tanggal = max_date.strftime('%Y-%m-%d') if max_date else datetime.now().strftime('%Y-%m-%d')
+            logger.info(f"Tanggal terbaru dari database: {tanggal}")
+
+        # Hitung tanggal awal berdasarkan jumlah_hari
+        tanggal_akhir = datetime.strptime(tanggal, '%Y-%m-%d')
+        tanggal_awal = tanggal_akhir - timedelta(days=jumlah_hari)
+        tanggal_awal_str = tanggal_awal.strftime('%Y-%m-%d')
+        logger.info(f"Menghitung Top Gainers dari {tanggal_awal_str} hingga {tanggal}")
+
+        # Query untuk mendapatkan data pada tanggal akhir dan awal dengan Open Price diganti oleh Penutupan terakhir jika kosong
+        query = sql.SQL('''
+        SELECT s."Kode Saham", s."Nama Perusahaan", s."Penutupan", s."Volume", s."Nilai",
+               COALESCE(
+                   s."Open Price",
+                   (SELECT "Penutupan" FROM {table} WHERE "Kode Saham" = s."Kode Saham" AND "Tanggal Perdagangan Terakhir" < %s ORDER BY "Tanggal Perdagangan Terakhir" DESC LIMIT 1)
+               ) AS open_price,
+               (SELECT "Penutupan" FROM {table} awal WHERE awal."Kode Saham" = s."Kode Saham" AND awal."Tanggal Perdagangan Terakhir" = (
+                   SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table} WHERE "Kode Saham" = s."Kode Saham" AND "Tanggal Perdagangan Terakhir" <= %s
+               )) AS penutupan_awal
+        FROM {table} s
+        WHERE s."Tanggal Perdagangan Terakhir" = %s
+        AND EXISTS (
+            SELECT 1 FROM {table} awal WHERE awal."Kode Saham" = s."Kode Saham" AND awal."Tanggal Perdagangan Terakhir" <= %s
+            AND awal."Penutupan" IS NOT NULL AND awal."Penutupan" > 0
+            AND s."Penutupan" > awal."Penutupan"
+        )
+        ORDER BY ((s."Penutupan" - (
+            SELECT "Penutupan" FROM {table} awal WHERE awal."Kode Saham" = s."Kode Saham" AND awal."Tanggal Perdagangan Terakhir" = (
+                SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table} WHERE "Kode Saham" = s."Kode Saham" AND "Tanggal Perdagangan Terakhir" <= %s
+            )
+        )) / (
+            SELECT "Penutupan" FROM {table} awal WHERE awal."Kode Saham" = s."Kode Saham" AND awal."Tanggal Perdagangan Terakhir" = (
+                SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table} WHERE "Kode Saham" = s."Kode Saham" AND "Tanggal Perdagangan Terakhir" <= %s
+            )
+        ) * 100) DESC
+        LIMIT 30
+        ''').format(table=sql.Identifier('saham_data'))
+        cur.execute(query, (tanggal_akhir, tanggal_awal_str, tanggal, tanggal_awal_str, tanggal_awal_str, tanggal_awal_str))
+
+        results = cur.fetchall()
+        if results:
+            # Buat output teks
+            periode = f"{jumlah_hari} hari" if jumlah_hari > 1 else "harian"
+            response = f"Top Gainers ({periode}) dari {tanggal_awal_str} hingga {tanggal}:\n\n"
+            response += "```\n"
+            response += "| Ticker | Company Name          | Change (%)    | Close     | Open       | Volume      | Value (Rp) |\n"
+            response += "|--------|-----------------------|---------------|-----------|------------|-------------|------------|\n"
+            table_data = []
+            for row in results:
+                kode_saham, nama_perusahaan, penutupan, volume, nilai, open_price, penutupan_awal = row
+                persentase = ((penutupan - penutupan_awal) / penutupan_awal * 100) if penutupan_awal and penutupan_awal > 0 else 0
+                nama_perusahaan = nama_perusahaan[:20] + "..." if len(nama_perusahaan) > 20 else nama_perusahaan
+                formatted_persentase = f"{persentase:.2f}%"
+                table_data.append((kode_saham, nama_perusahaan, formatted_persentase, penutupan, open_price, volume, nilai))
+                emoji = "🟢" if persentase > 0 else ""  # Hanya gainer yang ditampilkan
+                response += (
+                    f"| {kode_saham:<6} | {nama_perusahaan:<21} | {emoji} {formatted_persentase:>6} | {penutupan:>9.2f} | {open_price:>10.2f} | {volume:>11,d} | {format_value(nilai):>10} |\n"
+                )
+            response += "```"
+
+            # Buat dan kirim gambar tabel
+            title = f"Top Gainers ({periode}) dari {tanggal_awal_str} hingga {tanggal}"
+            try:
+                image_files = create_table_image(table_data, title, is_gainer=True, is_period=True)
+                for i, temp_file in enumerate(image_files, 1):
+                    if os.path.exists(temp_file):
+                        logger.info(f"Mengirim gambar {temp_file} sebagai bagian {i}")
+                        await message.answer_photo(FSInputFile(path=temp_file, filename=f"top_gainers_part_{i}.png"))
+                        logger.info(f"Gambar {temp_file} dikirim sebagai bagian {i}")
+                        try:
+                            os.remove(temp_file)
+                            logger.info(f"File sementara {temp_file} dihapus")
+                        except Exception as e:
+                            logger.error(f"Gagal menghapus file sementara {temp_file}: {e}")
+                    else:
+                        logger.error(f"File gambar {temp_file} tidak ditemukan")
+                        await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+            except Exception as e:
+                logger.error(f"Error saat membuat atau mengirim gambar: {e}")
+                await message.answer(f"Error saat membuat atau mengirim gambar: {e}")
+
+            # Kirim teks sebagai cadangan
+            if len(response) > 4000:
+                response_parts = []
+                lines = response.split('\n')
+                current_part = "```\n"
+                for line in lines[2:]:
+                    if len(current_part) + len(line) + 1 > 4000:
+                        response_parts.append(current_part + "```")
+                        current_part = "```\n" + line + "\n"
+                    else:
+                        current_part += line + "\n"
+                if current_part.strip():
+                    response_parts.append(current_part + "```")
+                for i, part in enumerate(response_parts, 1):
+                    await message.answer(part)
+                    logger.info(f"Bagian teks {i} dikirim")
+            else:
+                await message.answer(response)
+            logger.info(f"Top Gainers ({periode}) ditemukan untuk tanggal: {tanggal}, jumlah baris: {len(results)}")
+        else:
+            logger.warning(f"Tidak ditemukan Top Gainers ({periode}) untuk tanggal: {tanggal}")
+            await message.answer(f"Tidak ditemukan Top Gainers ({periode}) untuk tanggal {tanggal}. Pastikan data tersedia untuk periode tersebut.")
+    except Exception as e:
+        logger.error(f"Error saat mengambil Top Gainers: {e}")
+        await message.answer(f"Error saat mengambil Top Gainers: {e}")
+    finally:
+        cur.close()
+        conn.close()
+        logger.info("Koneksi database ditutup")
+
+@router.message(Command("tgo"))
+async def cmd_top_gainers(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /tg
+    logger.info(f"Perintah /tgo diterima dari user_id: {user_id}, argumen: {args}")
+    
+    tanggal = None
+    jumlah_hari = None
+    
+    # Parsing argumen
+    if len(args) == 1:
+        try:
+            jumlah_hari = int(args[0])  # Coba parse sebagai jumlah hari
+            if jumlah_hari <= 0:
+                raise ValueError("Jumlah hari harus lebih dari 0")
+        except ValueError:
+            try:
+                datetime.strptime(args[0], '%Y-%m-%d')  # Coba parse sebagai tanggal
+                tanggal = args[0]
+                jumlah_hari = 1  # Default ke harian jika hanya tanggal
+            except ValueError:
+                logger.error(f"Argumen tidak valid: {args[0]} dari user_id: {user_id}")
+                await message.answer("Argumen tidak valid. Gunakan /tgo [yyyy-mm-dd] atau /tgo <jumlah_hari>, misalnya: /tg 2025-08-14 atau /tg 100")
+                return
+    elif len(args) == 2:
+        try:
+            datetime.strptime(args[0], '%Y-%m-%d')
+            tanggal = args[0]
+            jumlah_hari = int(args[1])
+            if jumlah_hari <= 0:
+                raise ValueError("Jumlah hari harus lebih dari 0")
+        except ValueError:
+            logger.error(f"Argumen tidak valid: {args} dari user_id: {user_id}")
+            await message.answer("Argumen tidak valid. Gunakan /tg yyyy-mm-dd <jumlah_hari>, misalnya: /tg 2025-08-14 100")
+            return
+    else:
+        jumlah_hari = 1  # Default ke harian jika tidak ada argumen
+
+    try:
+        logger.info(f"Membuka koneksi database untuk query /tg: tanggal={tanggal}, jumlah_hari={jumlah_hari}")
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+    except Exception as e:
+        logger.error(f"Error koneksi ke database: {e}")
+        await message.answer(f"Error koneksi ke database: {e}")
+        return
+
+    try:
+        # Ambil tanggal terbaru jika tidak ada tanggal
+        if not tanggal:
+            query = sql.SQL('SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table}').format(table=sql.Identifier('saham_data'))
+            cur.execute(query)
+            max_date = cur.fetchone()[0]
+            tanggal = max_date.strftime('%Y-%m-%d') if max_date else datetime.now().strftime('%Y-%m-%d')
+            logger.info(f"Tanggal terbaru dari database: {tanggal}")
+
+        # Hitung tanggal awal berdasarkan jumlah_hari
+        tanggal_akhir = datetime.strptime(tanggal, '%Y-%m-%d')
+        tanggal_sebelum = tanggal_akhir - timedelta(days=1)
+        tanggal_awal = tanggal_akhir - timedelta(days=jumlah_hari)
+        tanggal_awal_str = tanggal_awal.strftime('%Y-%m-%d')
+        logger.info(f"Menghitung Top Gainers dari {tanggal_awal_str} hingga {tanggal}")
+
+        # Query untuk mendapatkan data pada tanggal akhir dan awal dengan Open Price diganti oleh Penutupan 1 hari sebelumnya jika kosong
+        query = sql.SQL('''
+        SELECT s."Kode Saham", s."Nama Perusahaan", s."Penutupan", s."Volume", s."Nilai",
+               COALESCE(
+                   s."Open Price",
+                   (SELECT "Penutupan" FROM {table} WHERE "Kode Saham" = s."Kode Saham" AND "Tanggal Perdagangan Terakhir" = %s)
+               ) AS open_price,
+               (SELECT "Penutupan" FROM {table} awal WHERE awal."Kode Saham" = s."Kode Saham" AND awal."Tanggal Perdagangan Terakhir" = (
+                   SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table} WHERE "Kode Saham" = s."Kode Saham" AND "Tanggal Perdagangan Terakhir" <= %s
+               )) AS penutupan_awal
+        FROM {table} s
+        WHERE s."Tanggal Perdagangan Terakhir" = %s
+        AND EXISTS (
+            SELECT 1 FROM {table} awal WHERE awal."Kode Saham" = s."Kode Saham" AND awal."Tanggal Perdagangan Terakhir" <= %s
+            AND awal."Penutupan" IS NOT NULL AND awal."Penutupan" > 0
+            AND s."Penutupan" > awal."Penutupan"
+        )
+        ORDER BY ((s."Penutupan" - (
+            SELECT "Penutupan" FROM {table} awal WHERE awal."Kode Saham" = s."Kode Saham" AND awal."Tanggal Perdagangan Terakhir" = (
+                SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table} WHERE "Kode Saham" = s."Kode Saham" AND "Tanggal Perdagangan Terakhir" <= %s
+            )
+        )) / (
+            SELECT "Penutupan" FROM {table} awal WHERE awal."Kode Saham" = s."Kode Saham" AND awal."Tanggal Perdagangan Terakhir" = (
+                SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table} WHERE "Kode Saham" = s."Kode Saham" AND "Tanggal Perdagangan Terakhir" <= %s
+            )
+        ) * 100) DESC
+        LIMIT 30
+        ''').format(table=sql.Identifier('saham_data'))
+        cur.execute(query, (tanggal_sebelum.strftime('%Y-%m-%d'), tanggal_awal_str, tanggal, tanggal_awal_str, tanggal_awal_str, tanggal_awal_str))
+
+        results = cur.fetchall()
+        if results:
+            # Buat output teks
+            periode = f"{jumlah_hari} hari" if jumlah_hari > 1 else "harian"
+            response = f"Top Gainers ({periode}) dari {tanggal_awal_str} hingga {tanggal}:\n\n"
+            response += "```\n"
+            response += "| Ticker | Company Name          | Change (%)    | Close     | Open       | Volume      | Value (Rp) |\n"
+            response += "|--------|-----------------------|---------------|-----------|------------|-------------|------------|\n"
+            table_data = []
+            for row in results:
+                kode_saham, nama_perusahaan, penutupan, volume, nilai, open_price, penutupan_awal = row
+                persentase = ((penutupan - penutupan_awal) / penutupan_awal * 100) if penutupan_awal and penutupan_awal > 0 else 0
+                nama_perusahaan = nama_perusahaan[:20] + "..." if len(nama_perusahaan) > 20 else nama_perusahaan
+                table_data.append((kode_saham, nama_perusahaan, persentase, penutupan, open_price, volume, nilai))
+                response += (
+                    f"| {kode_saham:<6} | {nama_perusahaan:<21} | 🟢 {persentase:>6.2f}% | {penutupan:>9.2f} | {open_price:>10.2f} | {volume:>11,d} | {format_value(nilai):>10} |\n"
+                )
+            response += "```"
+
+            # Buat dan kirim gambar tabel
+            title = f"Top Gainers ({periode}) dari {tanggal_awal_str} hingga {tanggal}"
+            try:
+                image_files = create_table_image(table_data, title, is_gainer=True, is_period=True)
+                for i, temp_file in enumerate(image_files, 1):
+                    if os.path.exists(temp_file):
+                        logger.info(f"Mengirim gambar {temp_file} sebagai bagian {i}")
+                        await message.answer_photo(FSInputFile(path=temp_file, filename=f"top_gainers_part_{i}.png"))
+                        logger.info(f"Gambar {temp_file} dikirim sebagai bagian {i}")
+                        try:
+                            os.remove(temp_file)
+                            logger.info(f"File sementara {temp_file} dihapus")
+                        except Exception as e:
+                            logger.error(f"Gagal menghapus file sementara {temp_file}: {e}")
+                    else:
+                        logger.error(f"File gambar {temp_file} tidak ditemukan")
+                        await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+            except Exception as e:
+                logger.error(f"Error saat membuat atau mengirim gambar: {e}")
+                await message.answer(f"Error saat membuat atau mengirim gambar: {e}")
+
+            # Kirim teks sebagai cadangan
+            if len(response) > 4000:
+                response_parts = []
+                lines = response.split('\n')
+                current_part = "```\n"
+                for line in lines[2:]:
+                    if len(current_part) + len(line) + 1 > 4000:
+                        response_parts.append(current_part + "```")
+                        current_part = "```\n" + line + "\n"
+                    else:
+                        current_part += line + "\n"
+                if current_part.strip():
+                    response_parts.append(current_part + "```")
+                for i, part in enumerate(response_parts, 1):
+                    await message.answer(part)
+                    logger.info(f"Bagian teks {i} dikirim")
+            else:
+                await message.answer(response)
+            logger.info(f"Top Gainers ({periode}) ditemukan untuk tanggal: {tanggal}, jumlah baris: {len(results)}")
+        else:
+            logger.warning(f"Tidak ditemukan Top Gainers ({periode}) untuk tanggal: {tanggal}")
+            await message.answer(f"Tidak ditemukan Top Gainers ({periode}) untuk tanggal {tanggal}. Pastikan data tersedia untuk periode tersebut.")
+    except Exception as e:
+        logger.error(f"Error saat mengambil Top Gainers: {e}")
+        await message.answer(f"Error saat mengambil Top Gainers: {e}")
+    finally:
+        cur.close()
+        conn.close()
+        logger.info("Koneksi database ditutup")        
+
+@router.message(Command("tl"))
+async def cmd_top_losers(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /tl
+    logger.info(f"Perintah /tl diterima dari user_id: {user_id}, argumen: {args}")
+    
+    tanggal = None
+    jumlah_hari = None
+    
+    # Parsing argumen
+    if len(args) == 1:
+        try:
+            jumlah_hari = int(args[0])  # Coba parse sebagai jumlah hari
+            if jumlah_hari <= 0:
+                raise ValueError("Jumlah hari harus lebih dari 0")
+        except ValueError:
+            try:
+                datetime.strptime(args[0], '%Y-%m-%d')  # Coba parse sebagai tanggal
+                tanggal = args[0]
+                jumlah_hari = 1  # Default ke harian jika hanya tanggal
+            except ValueError:
+                logger.error(f"Argumen tidak valid: {args[0]} dari user_id: {user_id}")
+                await message.answer("Argumen tidak valid. Gunakan /tl [yyyy-mm-dd] atau /tl <jumlah_hari>, misalnya: /tl 2025-08-14 atau /tl 100")
+                return
+    elif len(args) == 2:
+        try:
+            datetime.strptime(args[0], '%Y-%m-%d')
+            tanggal = args[0]
+            jumlah_hari = int(args[1])
+            if jumlah_hari <= 0:
+                raise ValueError("Jumlah hari harus lebih dari 0")
+        except ValueError:
+            logger.error(f"Argumen tidak valid: {args} dari user_id: {user_id}")
+            await message.answer("Argumen tidak valid. Gunakan /tl yyyy-mm-dd <jumlah_hari>, misalnya: /tl 2025-08-14 100")
+            return
+    else:
+        jumlah_hari = 1  # Default ke harian jika tidak ada argumen
+
+    try:
+        logger.info(f"Membuka koneksi database untuk query /tl: tanggal={tanggal}, jumlah_hari={jumlah_hari}")
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+    except Exception as e:
+        logger.error(f"Error koneksi ke database: {e}")
+        await message.answer(f"Error koneksi ke database: {e}")
+        return
+
+    try:
+        # Ambil tanggal terbaru jika tidak ada tanggal
+        if not tanggal:
+            query = sql.SQL('SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table}').format(table=sql.Identifier('saham_data'))
+            cur.execute(query)
+            max_date = cur.fetchone()[0]
+            tanggal = max_date.strftime('%Y-%m-%d') if max_date else datetime.now().strftime('%Y-%m-%d')
+            logger.info(f"Tanggal terbaru dari database: {tanggal}")
+
+        # Hitung tanggal awal berdasarkan jumlah_hari
+        tanggal_akhir = datetime.strptime(tanggal, '%Y-%m-%d')
+        tanggal_awal = tanggal_akhir - timedelta(days=jumlah_hari)
+        tanggal_awal_str = tanggal_awal.strftime('%Y-%m-%d')
+        logger.info(f"Menghitung Top Losers dari {tanggal_awal_str} hingga {tanggal}")
+
+        # Query untuk mendapatkan data pada tanggal akhir dan awal dengan Open Price diganti oleh Penutupan terakhir jika kosong
+        query = sql.SQL('''
+        SELECT s."Kode Saham", s."Nama Perusahaan", s."Penutupan", s."Volume", s."Nilai",
+               COALESCE(
+                   s."Open Price",
+                   (SELECT "Penutupan" FROM {table} WHERE "Kode Saham" = s."Kode Saham" AND "Tanggal Perdagangan Terakhir" < %s ORDER BY "Tanggal Perdagangan Terakhir" DESC LIMIT 1)
+               ) AS open_price,
+               (SELECT "Penutupan" FROM {table} awal WHERE awal."Kode Saham" = s."Kode Saham" AND awal."Tanggal Perdagangan Terakhir" = (
+                   SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table} WHERE "Kode Saham" = s."Kode Saham" AND "Tanggal Perdagangan Terakhir" <= %s
+               )) AS penutupan_awal
+        FROM {table} s
+        WHERE s."Tanggal Perdagangan Terakhir" = %s
+        AND EXISTS (
+            SELECT 1 FROM {table} awal WHERE awal."Kode Saham" = s."Kode Saham" AND awal."Tanggal Perdagangan Terakhir" <= %s
+            AND awal."Penutupan" IS NOT NULL AND awal."Penutupan" > 0
+            AND s."Penutupan" < awal."Penutupan"
+        )
+        ORDER BY ((s."Penutupan" - (
+            SELECT "Penutupan" FROM {table} awal WHERE awal."Kode Saham" = s."Kode Saham" AND awal."Tanggal Perdagangan Terakhir" = (
+                SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table} WHERE "Kode Saham" = s."Kode Saham" AND "Tanggal Perdagangan Terakhir" <= %s
+            )
+        )) / (
+            SELECT "Penutupan" FROM {table} awal WHERE awal."Kode Saham" = s."Kode Saham" AND awal."Tanggal Perdagangan Terakhir" = (
+                SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table} WHERE "Kode Saham" = s."Kode Saham" AND "Tanggal Perdagangan Terakhir" <= %s
+            )
+        ) * 100) ASC
+        LIMIT 30
+        ''').format(table=sql.Identifier('saham_data'))
+        cur.execute(query, (tanggal_akhir, tanggal_awal_str, tanggal, tanggal_awal_str, tanggal_awal_str, tanggal_awal_str))
+
+        results = cur.fetchall()
+        if results:
+            # Buat output teks
+            periode = f"{jumlah_hari} hari" if jumlah_hari > 1 else "harian"
+            response = f"Top Losers ({periode}) dari {tanggal_awal_str} hingga {tanggal}:\n\n"
+            response += "```\n"
+            response += "| Ticker | Company Name          | Change (%)    | Close     | Open       | Volume      | Value (Rp) |\n"
+            response += "|--------|-----------------------|---------------|-----------|------------|-------------|------------|\n"
+            table_data = []
+            for row in results:
+                kode_saham, nama_perusahaan, penutupan, volume, nilai, open_price, penutupan_awal = row
+                persentase = ((penutupan - penutupan_awal) / penutupan_awal * 100) if penutupan_awal and penutupan_awal > 0 else 0
+                nama_perusahaan = nama_perusahaan[:20] + "..." if len(nama_perusahaan) > 20 else nama_perusahaan
+                table_data.append((kode_saham, nama_perusahaan, persentase, penutupan, open_price, volume, nilai))
+                response += (
+                    f"| {kode_saham:<6} | {nama_perusahaan:<21} | 🔴 {persentase:>6.2f}% | {penutupan:>9.2f} | {open_price:>10.2f} | {volume:>11,d} | {format_value(nilai):>10} |\n"
+                )
+            response += "```"
+
+            # Buat dan kirim gambar tabel
+            title = f"Top Losers ({periode}) dari {tanggal_awal_str} hingga {tanggal}"
+            try:
+                image_files = create_table_image(table_data, title, is_gainer=False, is_period=True)
+                for i, temp_file in enumerate(image_files, 1):
+                    if os.path.exists(temp_file):
+                        logger.info(f"Mengirim gambar {temp_file} sebagai bagian {i}")
+                        await message.answer_photo(FSInputFile(path=temp_file, filename=f"top_losers_part_{i}.png"))
+                        logger.info(f"Gambar {temp_file} dikirim sebagai bagian {i}")
+                        try:
+                            os.remove(temp_file)
+                            logger.info(f"File sementara {temp_file} dihapus")
+                        except Exception as e:
+                            logger.error(f"Gagal menghapus file sementara {temp_file}: {e}")
+                    else:
+                        logger.error(f"File gambar {temp_file} tidak ditemukan")
+                        await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+            except Exception as e:
+                logger.error(f"Error saat membuat atau mengirim gambar: {e}")
+                await message.answer(f"Error saat membuat atau mengirim gambar: {e}")
+
+            # Kirim teks sebagai cadangan
+            if len(response) > 4000:
+                response_parts = []
+                lines = response.split('\n')
+                current_part = "```\n"
+                for line in lines[2:]:
+                    if len(current_part) + len(line) + 1 > 4000:
+                        response_parts.append(current_part + "```")
+                        current_part = "```\n" + line + "\n"
+                    else:
+                        current_part += line + "\n"
+                if current_part.strip():
+                    response_parts.append(current_part + "```")
+                for i, part in enumerate(response_parts, 1):
+                    await message.answer(part)
+                    logger.info(f"Bagian teks {i} dikirim")
+            else:
+                await message.answer(response)
+            logger.info(f"Top Losers ({periode}) ditemukan untuk tanggal: {tanggal}, jumlah baris: {len(results)}")
+        else:
+            logger.warning(f"Tidak ditemukan Top Losers ({periode}) untuk tanggal: {tanggal}")
+            await message.answer(f"Tidak ditemukan Top Losers ({periode}) untuk tanggal {tanggal}. Pastikan data tersedia untuk periode tersebut.")
+    except Exception as e:
+        logger.error(f"Error saat mengambil Top Losers: {e}")
+        await message.answer(f"Error saat mengambil Top Losers: {e}")
+    finally:
+        cur.close()
+        conn.close()
+        logger.info("Koneksi database ditutup")
+
+# Handler untuk perintah /fa (Top Foreign Accumulation)
+@router.message(Command("fa"))
+async def cmd_foreign_accum(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /fa
+    logger.info(f"Perintah /fa diterima dari user_id: {user_id}, argumen: {args}")
+    
+    tanggal = args[0] if args else None
+    
+    if tanggal:
+        try:
+            datetime.strptime(tanggal, '%Y-%m-%d')
+        except ValueError:
+            logger.error(f"Format tanggal salah: {tanggal} dari user_id: {user_id}")
+            await message.answer("Format tanggal salah. Gunakan YYYY-MM-DD, misalnya: 2025-08-14")
+            return
+
+    try:
+        logger.info(f"Membuka koneksi database untuk query /fa: {tanggal}")
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+    except Exception as e:
+        logger.error(f"Error koneksi ke database: {e}")
+        await message.answer(f"Error koneksi ke database: {e}")
+        return
+
+    try:
+        if tanggal:
+            query = sql.SQL('''
+            SELECT "Kode Saham", "Nama Perusahaan", ("Foreign Buy" - "Foreign Sell") AS net_foreign, "Foreign Buy", "Foreign Sell", "Volume", "Nilai"
+            FROM {table}
+            WHERE "Tanggal Perdagangan Terakhir" = %s AND "Foreign Buy" > "Foreign Sell"
+            ORDER BY ("Foreign Buy" - "Foreign Sell") DESC
+            ''').format(table=sql.Identifier('saham_data'))
+            cur.execute(query, (tanggal,))
+        else:
+            query = sql.SQL('''
+            SELECT "Kode Saham", "Nama Perusahaan", ("Foreign Buy" - "Foreign Sell") AS net_foreign, "Foreign Buy", "Foreign Sell", "Volume", "Nilai"
+            FROM {table}
+            WHERE "Tanggal Perdagangan Terakhir" = (
+                SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table}
+            ) AND "Foreign Buy" > "Foreign Sell"
+            ORDER BY ("Foreign Buy" - "Foreign Sell") DESC
+            ''').format(table=sql.Identifier('saham_data'))
+            cur.execute(query)
+
+        results = cur.fetchall()
+        if results:
+            response = f"Top Foreign Accumulation (harian) {'pada ' + tanggal if tanggal else 'terbaru'}:\n\n"
+            response += "```\n"
+            response += "| Ticker | Company Name          | Net Foreign (Rp) | Foreign Buy   | Foreign Sell  | Volume      | Value (Rp) |\n"
+            response += "|--------|-----------------------|------------------|---------------|---------------|-------------|------------|\n"
+            for row in results:
+                kode_saham, nama_perusahaan, net_foreign, foreign_buy, foreign_sell, volume, nilai = row
+                nama_perusahaan = nama_perusahaan[:20] + "..." if len(nama_perusahaan) > 20 else nama_perusahaan
+                response += (
+                    f"| {kode_saham:<6} | {nama_perusahaan:<21} | {format_value(net_foreign):>16} | {format_value(foreign_buy):>13} | {format_value(foreign_sell):>13} | {volume:>11,d} | {format_value(nilai):>10} |\n"
+                )
+            response += "```"
+
+            title = f"Top Foreign Accumulation (harian) {'pada ' + tanggal if tanggal else 'terbaru'}"
+            try:
+                image_files = create_table_image(results, title, is_gainer=False, is_accum=True)
+                for i, temp_file in enumerate(image_files, 1):
+                    if os.path.exists(temp_file):
+                        logger.info(f"Mengirim gambar {temp_file} sebagai bagian {i}")
+                        await message.answer_photo(FSInputFile(path=temp_file, filename=f"top_foreign_accum_part_{i}.png"))
+                        logger.info(f"Gambar {temp_file} dikirim sebagai bagian {i}")
+                        try:
+                            os.remove(temp_file)
+                            logger.info(f"File sementara {temp_file} dihapus")
+                        except Exception as e:
+                            logger.error(f"Gagal menghapus file sementara {temp_file}: {e}")
+                    else:
+                        logger.error(f"File gambar {temp_file} tidak ditemukan")
+                        await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+            except Exception as e:
+                logger.error(f"Error saat membuat atau mengirim gambar: {e}")
+                await message.answer(f"Error saat membuat atau mengirim gambar: {e}")
+
+            if len(response) > 4000:
+                response_parts = []
+                lines = response.split('\n')
+                current_part = "```\n"
+                for line in lines[2:]:
+                    if len(current_part) + len(line) + 1 > 4000:
+                        response_parts.append(current_part + "```")
+                        current_part = "```\n" + line + "\n"
+                    else:
+                        current_part += line + "\n"
+                if current_part.strip():
+                    response_parts.append(current_part + "```")
+                for i, part in enumerate(response_parts, 1):
+                    await message.answer(part)
+                    logger.info(f"Bagian teks {i} dikirim")
+            else:
+                await message.answer(response)
+            logger.info(f"Top Foreign Accumulation ditemukan untuk tanggal: {tanggal or 'terbaru'}, jumlah baris: {len(results)}")
+        else:
+            logger.warning(f"Tidak ditemukan Top Foreign Accumulation untuk tanggal: {tanggal or 'terbaru'}")
+            await message.answer(f"Tidak ditemukan Top Foreign Accumulation untuk tanggal {'terbaru' if not tanggal else tanggal}.")
+    except Exception as e:
+        logger.error(f"Error saat mengambil Top Foreign Accumulation: {e}")
+        await message.answer(f"Error saat mengambil Top Foreign Accumulation: {e}")
+    finally:
+        cur.close()
+        conn.close()
+        logger.info("Koneksi database ditutup")
+
+# Handler untuk perintah /fs (Top Foreign Sell)
+@router.message(Command("fs"))
+async def cmd_foreign_sell(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /fs
+    logger.info(f"Perintah /fs diterima dari user_id: {user_id}, argumen: {args}")
+    
+    tanggal = args[0] if args else None
+    
+    if tanggal:
+        try:
+            datetime.strptime(tanggal, '%Y-%m-%d')
+        except ValueError:
+            logger.error(f"Format tanggal salah: {tanggal} dari user_id: {user_id}")
+            await message.answer("Format tanggal salah. Gunakan YYYY-MM-DD, misalnya: 2025-08-14")
+            return
+
+    try:
+        logger.info(f"Membuka koneksi database untuk query /fs: {tanggal}")
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+    except Exception as e:
+        logger.error(f"Error koneksi ke database: {e}")
+        await message.answer(f"Error koneksi ke database: {e}")
+        return
+
+    try:
+        if tanggal:
+            query = sql.SQL('''
+            SELECT "Kode Saham", "Nama Perusahaan", ("Foreign Buy" - "Foreign Sell") AS net_foreign, "Foreign Buy", "Foreign Sell", "Volume", "Nilai"
+            FROM {table}
+            WHERE "Tanggal Perdagangan Terakhir" = %s AND "Foreign Buy" < "Foreign Sell"
+            ORDER BY ("Foreign Buy" - "Foreign Sell") ASC
+            ''').format(table=sql.Identifier('saham_data'))
+            cur.execute(query, (tanggal,))
+        else:
+            query = sql.SQL('''
+            SELECT "Kode Saham", "Nama Perusahaan", ("Foreign Buy" - "Foreign Sell") AS net_foreign, "Foreign Buy", "Foreign Sell", "Volume", "Nilai"
+            FROM {table}
+            WHERE "Tanggal Perdagangan Terakhir" = (
+                SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table}
+            ) AND "Foreign Buy" < "Foreign Sell"
+            ORDER BY ("Foreign Buy" - "Foreign Sell") ASC
+            ''').format(table=sql.Identifier('saham_data'))
+            cur.execute(query)
+
+        results = cur.fetchall()
+        if results:
+            response = f"Top Foreign Sell (harian) {'pada ' + tanggal if tanggal else 'terbaru'}:\n\n"
+            response += "```\n"
+            response += "| Ticker | Company Name          | Net Foreign (Rp) | Foreign Buy   | Foreign Sell  | Volume      | Value (Rp) |\n"
+            response += "|--------|-----------------------|------------------|---------------|---------------|-------------|------------|\n"
+            for row in results:
+                kode_saham, nama_perusahaan, net_foreign, foreign_buy, foreign_sell, volume, nilai = row
+                nama_perusahaan = nama_perusahaan[:20] + "..." if len(nama_perusahaan) > 20 else nama_perusahaan
+                response += (
+                    f"| {kode_saham:<6} | {nama_perusahaan:<21} | {format_value(net_foreign):>16} | {format_value(foreign_buy):>13} | {format_value(foreign_sell):>13} | {volume:>11,d} | {format_value(nilai):>10} |\n"
+                )
+            response += "```"
+
+            title = f"Top Foreign Sell (harian) {'pada ' + tanggal if tanggal else 'terbaru'}"
+            try:
+                image_files = create_table_image(results, title, is_gainer=False, is_accum=True)
+                for i, temp_file in enumerate(image_files, 1):
+                    if os.path.exists(temp_file):
+                        logger.info(f"Mengirim gambar {temp_file} sebagai bagian {i}")
+                        await message.answer_photo(FSInputFile(path=temp_file, filename=f"top_foreign_sell_part_{i}.png"))
+                        logger.info(f"Gambar {temp_file} dikirim sebagai bagian {i}")
+                        try:
+                            os.remove(temp_file)
+                            logger.info(f"File sementara {temp_file} dihapus")
+                        except Exception as e:
+                            logger.error(f"Gagal menghapus file sementara {temp_file}: {e}")
+                    else:
+                        logger.error(f"File gambar {temp_file} tidak ditemukan")
+                        await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+            except Exception as e:
+                logger.error(f"Error saat membuat atau mengirim gambar: {e}")
+                await message.answer(f"Error saat membuat atau mengirim gambar: {e}")
+
+            if len(response) > 4000:
+                response_parts = []
+                lines = response.split('\n')
+                current_part = "```\n"
+                for line in lines[2:]:
+                    if len(current_part) + len(line) + 1 > 4000:
+                        response_parts.append(current_part + "```")
+                        current_part = "```\n" + line + "\n"
+                    else:
+                        current_part += line + "\n"
+                if current_part.strip():
+                    response_parts.append(current_part + "```")
+                for i, part in enumerate(response_parts, 1):
+                    await message.answer(part)
+                    logger.info(f"Bagian teks {i} dikirim")
+            else:
+                await message.answer(response)
+            logger.info(f"Top Foreign Sell ditemukan untuk tanggal: {tanggal or 'terbaru'}, jumlah baris: {len(results)}")
+        else:
+            logger.warning(f"Tidak ditemukan Top Foreign Sell untuk tanggal: {tanggal or 'terbaru'}")
+            await message.answer(f"Tidak ditemukan Top Foreign Sell untuk tanggal {'terbaru' if not tanggal else tanggal}.")
+    except Exception as e:
+        logger.error(f"Error saat mengambil Top Foreign Sell: {e}")
+        await message.answer(f"Error saat mengambil Top Foreign Sell: {e}")
+    finally:
+        cur.close()
+        conn.close()
+        logger.info("Koneksi database ditutup")
+
+# Handler untuk perintah /index (Index Performance)
+@router.message(Command("index"))
+async def cmd_index_performance(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /index
+    logger.info(f"Perintah /index diterima dari user_id: {user_id}, argumen: {args}")
+    
+    tanggal = args[0] if args else None
+    
+    if tanggal:
+        try:
+            datetime.strptime(tanggal, '%Y-%m-%d')
+        except ValueError:
+            logger.error(f"Format tanggal salah: {tanggal} dari user_id: {user_id}")
+            await message.answer("Format tanggal salah. Gunakan YYYY-MM-DD, misalnya: 2025-08-14")
+            return
+
+    try:
+        logger.info(f"Membuka koneksi database untuk query /index: {tanggal}")
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+    except Exception as e:
+        logger.error(f"Error koneksi ke database: {e}")
+        await message.answer(f"Error koneksi ke database: {e}")
+        return
+
+    try:
+        if tanggal:
+            query = sql.SQL('''
+            SELECT "Kode Indeks", "Kode Indeks" AS "Nama Indeks", "Penutupan", "Selisih", "Sebelumnya", "Volume", "Nilai"
+            FROM {table}
+            WHERE "Tanggal Perdagangan Terakhir" = %s
+            ORDER BY ("Selisih" / "Sebelumnya") DESC
+            ''').format(table=sql.Identifier('index_data'))
+            cur.execute(query, (tanggal,))
+        else:
+            query = sql.SQL('''
+            SELECT "Kode Indeks", "Kode Indeks" AS "Nama Indeks", "Penutupan", "Selisih", "Sebelumnya", "Volume", "Nilai"
+            FROM {table}
+            WHERE "Tanggal Perdagangan Terakhir" = (
+                SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table}
+            )
+            ORDER BY ("Selisih" / "Sebelumnya") DESC
+            ''').format(table=sql.Identifier('index_data'))
+            cur.execute(query)
+
+        results = cur.fetchall()
+        if results:
+            response = f"Index Performance (harian) {'pada ' + tanggal if tanggal else 'terbaru'}:\n\n"
+            response += "```\n"
+            response += "| Index  | Index Name            | Change (%)    | Close     | Volume      | Value (Rp) |\n"
+            response += "|--------|-----------------------|---------------|-----------|-------------|------------|\n"
+            for row in results:
+                kode_indeks, nama_indeks, penutupan, selisih, sebelumnya, volume, nilai = row
+                persentase = (selisih / sebelumnya * 100) if sebelumnya else 0
+                nama_indeks = nama_indeks[:20] + "..." if len(nama_indeks) > 20 else nama_indeks
+                emoji = "🟢" if persentase > 0 else "🔴" if persentase < 0 else ""
+                response += (
+                    f"| {kode_indeks:<6} | {nama_indeks:<21} | {emoji} {persentase:>6.2f}% | {penutupan:>9.2f} | {volume:>11,d} | {format_value(nilai):>10} |\n"
+                )
+            response += "```"
+
+            title = f"Index Performance (harian) {'pada ' + tanggal if tanggal else 'terbaru'}"
+            try:
+                image_files = create_table_image(results, title, is_gainer=True, is_index=True)
+                for i, temp_file in enumerate(image_files, 1):
+                    if os.path.exists(temp_file):
+                        logger.info(f"Mengirim gambar {temp_file} sebagai bagian {i}")
+                        await message.answer_photo(FSInputFile(path=temp_file, filename=f"index_performance_part_{i}.png"))
+                        logger.info(f"Gambar {temp_file} dikirim sebagai bagian {i}")
+                        try:
+                            os.remove(temp_file)
+                            logger.info(f"File sementara {temp_file} dihapus")
+                        except Exception as e:
+                            logger.error(f"Gagal menghapus file sementara {temp_file}: {e}")
+                    else:
+                        logger.error(f"File gambar {temp_file} tidak ditemukan")
+                        await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+            except Exception as e:
+                logger.error(f"Error saat membuat atau mengirim gambar: {e}")
+                await message.answer(f"Error saat membuat atau mengirim gambar: {e}")
+
+            if len(response) > 4000:
+                response_parts = []
+                lines = response.split('\n')
+                current_part = "```\n"
+                for line in lines[2:]:
+                    if len(current_part) + len(line) + 1 > 4000:
+                        response_parts.append(current_part + "```")
+                        current_part = "```\n" + line + "\n"
+                    else:
+                        current_part += line + "\n"
+                if current_part.strip():
+                    response_parts.append(current_part + "```")
+                for i, part in enumerate(response_parts, 1):
+                    await message.answer(part)
+                    logger.info(f"Bagian teks {i} dikirim")
+            else:
+                await message.answer(response)
+            logger.info(f"Index Performance ditemukan untuk tanggal: {tanggal or 'terbaru'}, jumlah baris: {len(results)}")
+        else:
+            logger.warning(f"Tidak ditemukan data Index Performance untuk tanggal: {tanggal or 'terbaru'}")
+            await message.answer(f"Tidak ditemukan data Index Performance untuk tanggal {'terbaru' if not tanggal else tanggal}.")
+    except Exception as e:
+        logger.error(f"Error saat mengambil Index Performance: {e}")
+        await message.answer(f"Error saat mengambil Index Performance: {e}")
+    finally:
+        cur.close()
+        conn.close()
+        logger.info("Koneksi database ditutup")
+
+# Handler untuk perintah /topvolume (Top Volume)
+@router.message(Command("topvolume"))
+async def cmd_top_volume(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /topvolume
+    logger.info(f"Perintah /topvolume diterima dari user_id: {user_id}, argumen: {args}")
+    
+    tanggal = args[0] if args else None
+    
+    if tanggal:
+        try:
+            datetime.strptime(tanggal, '%Y-%m-%d')
+        except ValueError:
+            logger.error(f"Format tanggal salah: {tanggal} dari user_id: {user_id}")
+            await message.answer("Format tanggal salah. Gunakan YYYY-MM-DD, misalnya: 2025-08-14")
+            return
+
+    try:
+        logger.info(f"Membuka koneksi database untuk query /topvolume: {tanggal}")
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+    except Exception as e:
+        logger.error(f"Error koneksi ke database: {e}")
+        await message.answer(f"Error koneksi ke database: {e}")
+        return
+
+    try:
+        if tanggal:
+            query = sql.SQL('''
+            SELECT "Kode Saham", "Nama Perusahaan", "Penutupan", "Selisih", "Sebelumnya", "Volume", "Nilai"
+            FROM {table}
+            WHERE "Tanggal Perdagangan Terakhir" = %s
+            ORDER BY "Volume" DESC
+            LIMIT 30
+            ''').format(table=sql.Identifier('saham_data'))
+            cur.execute(query, (tanggal,))
+        else:
+            query = sql.SQL('''
+            SELECT "Kode Saham", "Nama Perusahaan", "Penutupan", "Selisih", "Sebelumnya", "Volume", "Nilai"
+            FROM {table}
+            WHERE "Tanggal Perdagangan Terakhir" = (
+                SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table}
+            )
+            ORDER BY "Volume" DESC
+            LIMIT 30
+            ''').format(table=sql.Identifier('saham_data'))
+            cur.execute(query)
+
+        results = cur.fetchall()
+        if results:
+            response = f"Top Volume (harian) {'pada ' + tanggal if tanggal else 'terbaru'}:\n\n"
+            response += "```\n"
+            response += "| Ticker | Company Name          | Change (%)    | Close     | Volume      | Value (Rp) |\n"
+            response += "|--------|-----------------------|---------------|-----------|-------------|------------|\n"
+            for row in results:
+                kode_saham, nama_perusahaan, penutupan, selisih, sebelumnya, volume, nilai = row
+                persentase = (selisih / sebelumnya * 100) if sebelumnya else 0
+                nama_perusahaan = nama_perusahaan[:20] + "..." if len(nama_perusahaan) > 20 else nama_perusahaan
+                emoji = "🟢" if persentase > 0 else "🔴" if persentase < 0 else ""
+                response += (
+                    f"| {kode_saham:<6} | {nama_perusahaan:<21} | {emoji} {persentase:>6.2f}% | {penutupan:>9.2f} | {volume:>11,d} | {format_value(nilai):>10} |\n"
+                )
+            response += "```"
+
+            title = f"Top Volume (harian) {'pada ' + tanggal if tanggal else 'terbaru'}"
+            try:
+                image_files = create_table_image(results, title, is_gainer=True)
+                for i, temp_file in enumerate(image_files, 1):
+                    if os.path.exists(temp_file):
+                        logger.info(f"Mengirim gambar {temp_file} sebagai bagian {i}")
+                        await message.answer_photo(FSInputFile(path=temp_file, filename=f"top_volume_part_{i}.png"))
+                        logger.info(f"Gambar {temp_file} dikirim sebagai bagian {i}")
+                        try:
+                            os.remove(temp_file)
+                            logger.info(f"File sementara {temp_file} dihapus")
+                        except Exception as e:
+                            logger.error(f"Gagal menghapus file sementara {temp_file}: {e}")
+                    else:
+                        logger.error(f"File gambar {temp_file} tidak ditemukan")
+                        await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+            except Exception as e:
+                logger.error(f"Error saat membuat atau mengirim gambar: {e}")
+                await message.answer(f"Error saat membuat atau mengirim gambar: {e}")
+
+            if len(response) > 4000:
+                response_parts = []
+                lines = response.split('\n')
+                current_part = "```\n"
+                for line in lines[2:]:
+                    if len(current_part) + len(line) + 1 > 4000:
+                        response_parts.append(current_part + "```")
+                        current_part = "```\n" + line + "\n"
+                    else:
+                        current_part += line + "\n"
+                if current_part.strip():
+                    response_parts.append(current_part + "```")
+                for i, part in enumerate(response_parts, 1):
+                    await message.answer(part)
+                    logger.info(f"Bagian teks {i} dikirim")
+            else:
+                await message.answer(response)
+            logger.info(f"Top Volume ditemukan untuk tanggal: {tanggal or 'terbaru'}, jumlah baris: {len(results)}")
+        else:
+            logger.warning(f"Tidak ditemukan Top Volume untuk tanggal: {tanggal or 'terbaru'}")
+            await message.answer(f"Tidak ditemukan Top Volume untuk tanggal {'terbaru' if not tanggal else tanggal}.")
+    except Exception as e:
+        logger.error(f"Error saat mengambil Top Volume: {e}")
+        await message.answer(f"Error saat mengambil Top Volume: {e}")
+    finally:
+        cur.close()
+        conn.close()
+        logger.info("Koneksi database ditutup")
+
+# Handler untuk perintah /topvalue (Top Value)
+@router.message(Command("topvalue"))
+async def cmd_top_value(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /topvalue
+    logger.info(f"Perintah /topvalue diterima dari user_id: {user_id}, argumen: {args}")
+    
+    tanggal = args[0] if args else None
+    
+    if tanggal:
+        try:
+            datetime.strptime(tanggal, '%Y-%m-%d')
+        except ValueError:
+            logger.error(f"Format tanggal salah: {tanggal} dari user_id: {user_id}")
+            await message.answer("Format tanggal salah. Gunakan YYYY-MM-DD, misalnya: 2025-08-14")
+            return
+
+    try:
+        logger.info(f"Membuka koneksi database untuk query /topvalue: {tanggal}")
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+    except Exception as e:
+        logger.error(f"Error koneksi ke database: {e}")
+        await message.answer(f"Error koneksi ke database: {e}")
+        return
+
+    try:
+        if tanggal:
+            query = sql.SQL('''
+            SELECT "Kode Saham", "Nama Perusahaan", "Penutupan", "Selisih", "Sebelumnya", "Volume", "Nilai"
+            FROM {table}
+            WHERE "Tanggal Perdagangan Terakhir" = %s
+            ORDER BY "Nilai" DESC
+            LIMIT 30
+            ''').format(table=sql.Identifier('saham_data'))
+            cur.execute(query, (tanggal,))
+        else:
+            query = sql.SQL('''
+            SELECT "Kode Saham", "Nama Perusahaan", "Penutupan", "Selisih", "Sebelumnya", "Volume", "Nilai"
+            FROM {table}
+            WHERE "Tanggal Perdagangan Terakhir" = (
+                SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table}
+            )
+            ORDER BY "Nilai" DESC
+            LIMIT 30
+            ''').format(table=sql.Identifier('saham_data'))
+            cur.execute(query)
+
+        results = cur.fetchall()
+        if results:
+            response = f"Top Value (harian) {'pada ' + tanggal if tanggal else 'terbaru'}:\n\n"
+            response += "```\n"
+            response += "| Ticker | Company Name          | Change (%)    | Close     | Volume      | Value (Rp) |\n"
+            response += "|--------|-----------------------|---------------|-----------|-------------|------------|\n"
+            for row in results:
+                kode_saham, nama_perusahaan, penutupan, selisih, sebelumnya, volume, nilai = row
+                persentase = (selisih / sebelumnya * 100) if sebelumnya else 0
+                nama_perusahaan = nama_perusahaan[:20] + "..." if len(nama_perusahaan) > 20 else nama_perusahaan
+                emoji = "🟢" if persentase > 0 else "🔴" if persentase < 0 else ""
+                response += (
+                    f"| {kode_saham:<6} | {nama_perusahaan:<21} | {emoji} {persentase:>6.2f}% | {penutupan:>9.2f} | {volume:>11,d} | {format_value(nilai):>10} |\n"
+                )
+            response += "```"
+
+            title = f"Top Value (harian) {'pada ' + tanggal if tanggal else 'terbaru'}"
+            try:
+                image_files = create_table_image(results, title, is_gainer=True)
+                for i, temp_file in enumerate(image_files, 1):
+                    if os.path.exists(temp_file):
+                        logger.info(f"Mengirim gambar {temp_file} sebagai bagian {i}")
+                        await message.answer_photo(FSInputFile(path=temp_file, filename=f"top_value_part_{i}.png"))
+                        logger.info(f"Gambar {temp_file} dikirim sebagai bagian {i}")
+                        try:
+                            os.remove(temp_file)
+                            logger.info(f"File sementara {temp_file} dihapus")
+                        except Exception as e:
+                            logger.error(f"Gagal menghapus file sementara {temp_file}: {e}")
+                    else:
+                        logger.error(f"File gambar {temp_file} tidak ditemukan")
+                        await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+            except Exception as e:
+                logger.error(f"Error saat membuat atau mengirim gambar: {e}")
+                await message.answer(f"Error saat membuat atau mengirim gambar: {e}")
+
+            if len(response) > 4000:
+                response_parts = []
+                lines = response.split('\n')
+                current_part = "```\n"
+                for line in lines[2:]:
+                    if len(current_part) + len(line) + 1 > 4000:
+                        response_parts.append(current_part + "```")
+                        current_part = "```\n" + line + "\n"
+                    else:
+                        current_part += line + "\n"
+                if current_part.strip():
+                    response_parts.append(current_part + "```")
+                for i, part in enumerate(response_parts, 1):
+                    await message.answer(part)
+                    logger.info(f"Bagian teks {i} dikirim")
+            else:
+                await message.answer(response)
+            logger.info(f"Top Value ditemukan untuk tanggal: {tanggal or 'terbaru'}, jumlah baris: {len(results)}")
+        else:
+            logger.warning(f"Tidak ditemukan Top Value untuk tanggal: {tanggal or 'terbaru'}")
+            await message.answer(f"Tidak ditemukan Top Value untuk tanggal {'terbaru' if not tanggal else tanggal}.")
+    except Exception as e:
+        logger.error(f"Error saat mengambil Top Value: {e}")
+        await message.answer(f"Error saat mengambil Top Value: {e}")
+    finally:
+        cur.close()
+        conn.close()
+        logger.info("Koneksi database ditutup")
+
+# Handler untuk perintah /macdcross (Saham dengan MACD Crossover)
+@router.message(Command("macdcross"))
+async def cmd_macd_cross(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /macdcross
+    logger.info(f"Perintah /macdcross diterima dari user_id: {user_id}, argumen: {args}")
+    
+    tanggal = args[0] if args else None
+    
+    if tanggal:
+        try:
+            datetime.strptime(tanggal, '%Y-%m-%d')
+        except ValueError:
+            logger.error(f"Format tanggal salah: {tanggal} dari user_id: {user_id}")
+            await message.answer("Format tanggal salah. Gunakan YYYY-MM-DD, misalnya: 2025-08-14")
+            return
+    else:
+        # Gunakan tanggal terbaru dari database
+        try:
+            conn = psycopg2.connect(**db_config)
+            cur = conn.cursor()
+            query = sql.SQL('SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table}').format(table=sql.Identifier('saham_data'))
+            cur.execute(query)
+            tanggal = cur.fetchone()[0].strftime('%Y-%m-%d')
+            cur.close()
+            conn.close()
+        except Exception as e:
+            logger.error(f"Error saat mengambil tanggal terbaru: {e}")
+            await message.answer(f"Error saat mengambil tanggal terbaru: {e}")
+            return
+
+    try:
+        logger.info(f"Membuka koneksi database untuk query /macdcross: {tanggal}")
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+    except Exception as e:
+        logger.error(f"Error koneksi ke database: {e}")
+        await message.answer(f"Error koneksi ke database: {e}")
+        return
+
+    try:
+        # Dapatkan list kode saham unik pada tanggal tersebut
+        query_saham = sql.SQL('''
+        SELECT DISTINCT "Kode Saham", "Nama Perusahaan", "Penutupan", "Selisih", "Sebelumnya", "Volume", "Nilai"
+        FROM {table}
+        WHERE "Tanggal Perdagangan Terakhir" = %s
+        ''').format(table=sql.Identifier('saham_data'))
+        cur.execute(query_saham, (tanggal,))
+        saham_list = cur.fetchall()
+
+        results = []
+        for row in saham_list:
+            kode_saham, nama_perusahaan, penutupan, selisih, sebelumnya, volume, nilai = row
+            
+            # Ambil data historis 50 hari terakhir untuk saham ini hingga tanggal
+            query_hist = sql.SQL('''
+            SELECT "Tanggal Perdagangan Terakhir", "Penutupan"
+            FROM {table}
+            WHERE "Kode Saham" = %s AND "Tanggal Perdagangan Terakhir" <= %s
+            ORDER BY "Tanggal Perdagangan Terakhir" DESC
+            LIMIT 50
+            ''').format(table=sql.Identifier('saham_data'))
+            cur.execute(query_hist, (kode_saham, tanggal))
+            hist_data = cur.fetchall()
+            
+            if len(hist_data) < 35:  # Minimal untuk EMA 26 + 9
+                continue
+            
+            # Buat DataFrame
+            df = pd.DataFrame(hist_data, columns=['Date', 'Close'])
+            df['Date'] = pd.to_datetime(df['Date'])
+            df = df.sort_values('Date')
+            prices = df['Close']
+            
+            # Hitung MACD
+            ema12 = prices.ewm(span=12, adjust=False).mean()
+            ema26 = prices.ewm(span=26, adjust=False).mean()
+            macd = ema12 - ema26
+            signal = macd.ewm(span=9, adjust=False).mean()
+            
+            # Deteksi crossover pada hari terakhir
+            cross_type = None
+            if len(macd) >= 2 and len(signal) >= 2:
+                if macd.iloc[-1] > signal.iloc[-1] and macd.iloc[-2] <= signal.iloc[-2]:
+                    cross_type = 'Bullish'
+                elif macd.iloc[-1] < signal.iloc[-1] and macd.iloc[-2] >= signal.iloc[-2]:
+                    cross_type = 'Bearish'
+            
+            if cross_type:
+                persentase = (selisih / sebelumnya * 100) if sebelumnya else 0
+                results.append((kode_saham, nama_perusahaan, persentase, penutupan, cross_type, volume, nilai))
+
+        if results:
+            # Sort results berdasarkan persentase (descending)
+            results.sort(key=lambda x: x[2], reverse=True)
+            
+            # Buat output teks
+            response = f"Saham dengan MACD Crossover (harian) pada {tanggal}:\n\n"
+            response += "```\n"
+            response += "| Ticker | Company Name          | Change (%)    | Close     | Cross Type | Volume      | Value (Rp) |\n"
+            response += "|--------|-----------------------|---------------|-----------|------------|-------------|------------|\n"
+            for row in results:
+                kode_saham, nama_perusahaan, persentase, penutupan, cross_type, volume, nilai = row
+                nama_perusahaan = nama_perusahaan[:20] + "..." if len(nama_perusahaan) > 20 else nama_perusahaan
+                emoji = "🟢" if persentase > 0 else "🔴" if persentase < 0 else ""
+                response += (
+                    f"| {kode_saham:<6} | {nama_perusahaan:<21} | {emoji} {persentase:>6.2f}% | {penutupan:>9.2f} | {cross_type:<10} | {volume:>11,d} | {format_value(nilai):>10} |\n"
+                )
+            response += "```"
+
+            # Buat dan kirim gambar tabel
+            title = f"Saham dengan MACD Crossover (harian) pada {tanggal}"
+            try:
+                image_files = create_table_image(results, title, is_macd=True)
+                for i, temp_file in enumerate(image_files, 1):
+                    if os.path.exists(temp_file):
+                        logger.info(f"Mengirim gambar {temp_file} sebagai bagian {i}")
+                        await message.answer_photo(FSInputFile(path=temp_file, filename=f"macd_cross_part_{i}.png"))
+                        logger.info(f"Gambar {temp_file} dikirim sebagai bagian {i}")
+                        try:
+                            os.remove(temp_file)
+                            logger.info(f"File sementara {temp_file} dihapus")
+                        except Exception as e:
+                            logger.error(f"Gagal menghapus file sementara {temp_file}: {e}")
+                    else:
+                        logger.error(f"File gambar {temp_file} tidak ditemukan")
+                        await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+            except Exception as e:
+                logger.error(f"Error saat membuat atau mengirim gambar: {e}")
+                await message.answer(f"Error saat membuat atau mengirim gambar: {e}")
+
+            # Kirim teks sebagai cadangan
+            if len(response) > 4000:
+                response_parts = []
+                lines = response.split('\n')
+                current_part = "```\n"
+                for line in lines[2:]:
+                    if len(current_part) + len(line) + 1 > 4000:
+                        response_parts.append(current_part + "```")
+                        current_part = "```\n" + line + "\n"
+                    else:
+                        current_part += line + "\n"
+                if current_part.strip():
+                    response_parts.append(current_part + "```")
+                for i, part in enumerate(response_parts, 1):
+                    await message.answer(part)
+                    logger.info(f"Bagian teks {i} dikirim")
+            else:
+                await message.answer(response)
+            logger.info(f"Saham MACD Crossover ditemukan untuk tanggal: {tanggal}, jumlah: {len(results)}")
+        else:
+            logger.warning(f"Tidak ditemukan saham dengan MACD Crossover untuk tanggal: {tanggal}")
+            await message.answer(f"Tidak ditemukan saham dengan MACD Crossover untuk tanggal {tanggal}.")
+    except Exception as e:
+        logger.error(f"Error saat mengambil MACD Crossover: {e}")
+        await message.answer(f"Error saat mengambil MACD Crossover: {e}")
+    finally:
+        cur.close()
+        conn.close()
+        logger.info("Koneksi database ditutup")
+
+import matplotlib.pyplot as plt  # Tambahkan di bagian import atas
+
+@router.message(Command("macd"))
+async def cmd_macd(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /macd
+    logger.info(f"Perintah /macd diterima dari user_id: {user_id}, argumen: {args}")
+
+    if not args:
+        logger.warning(f"Argumen kosong untuk /macd dari user_id: {user_id}")
+        await message.answer("Silakan masukkan Kode Saham. Contoh: /macd BBCA atau /macd BBCA 2025-08-14")
+        return
+
+    kode_saham = args[0].upper()
+    tanggal = args[1] if len(args) > 1 else None
+
+    if tanggal:
+        try:
+            datetime.strptime(tanggal, '%Y-%m-%d')
+        except ValueError:
+            logger.error(f"Format tanggal salah: {tanggal} dari user_id: {user_id}")
+            await message.answer("Format tanggal salah. Gunakan YYYY-MM-DD, misalnya: 2025-08-14")
+            return
+    else:
+        # Gunakan tanggal terbaru dari database
+        try:
+            conn = psycopg2.connect(**db_config)
+            cur = conn.cursor()
+            query = sql.SQL('SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table}').format(table=sql.Identifier('saham_data'))
+            cur.execute(query)
+            max_date = cur.fetchone()[0]
+            tanggal = max_date.strftime('%Y-%m-%d') if max_date else datetime.now().strftime('%Y-%m-%d')
+            logger.info(f"Tanggal terbaru dari database: {tanggal}")
+            cur.close()
+            conn.close()
+        except Exception as e:
+            logger.error(f"Error saat mengambil tanggal terbaru: {e}")
+            await message.answer(f"Error saat mengambil tanggal terbaru: {e}")
+            return
+
+    try:
+        logger.info(f"Membuka koneksi database untuk query /macd: {kode_saham}, {tanggal}")
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+    except Exception as e:
+        logger.error(f"Error koneksi ke database: {e}")
+        await message.answer(f"Error koneksi ke database: {e}")
+        return
+
+    try:
+        # Ambil data historis 50 hari terakhir untuk saham ini hingga tanggal
+        query_hist = sql.SQL('''
+        SELECT "Tanggal Perdagangan Terakhir", "Penutupan", "Nama Perusahaan"
+        FROM {table}
+        WHERE "Kode Saham" = %s AND "Tanggal Perdagangan Terakhir" <= %s
+        ORDER BY "Tanggal Perdagangan Terakhir" DESC
+        LIMIT 50
+        ''').format(table=sql.Identifier('saham_data'))
+        cur.execute(query_hist, (kode_saham, tanggal))
+        hist_data = cur.fetchall()
+
+        if len(hist_data) < 35:  # Minimal untuk EMA 26 + 9
+            logger.warning(f"Kode Saham {kode_saham} memiliki {len(hist_data)} hari data, minimal 35 hari diperlukan")
+            await message.answer(
+                f"Tidak cukup data untuk {kode_saham} pada {tanggal}. "
+                f"Diperlukan minimal 35 hari data historis."
+            )
+            return
+
+        # Buat DataFrame
+        df = pd.DataFrame(hist_data, columns=['Date', 'Close', 'Nama Perusahaan'])
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = df.sort_values('Date')  # Urutkan ascending untuk grafik
+        prices = df['Close']
+        nama_perusahaan = df['Nama Perusahaan'].iloc[0]
+
+        # Hitung MACD
+        ema12 = prices.ewm(span=12, adjust=False).mean()
+        ema26 = prices.ewm(span=26, adjust=False).mean()
+        macd = ema12 - ema26
+        signal = macd.ewm(span=9, adjust=False).mean()
+        histogram = macd - signal
+
+        # Deteksi crossover pada hari terakhir
+        cross_type = None
+        if len(macd) >= 2 and len(signal) >= 2:
+            if macd.iloc[-1] > signal.iloc[-1] and macd.iloc[-2] <= signal.iloc[-2]:
+                cross_type = 'Bullish'
+                logger.info(f"Crossover Bullish ditemukan untuk {kode_saham} pada {tanggal}")
+            elif macd.iloc[-1] < signal.iloc[-1] and macd.iloc[-2] >= signal.iloc[-2]:
+                cross_type = 'Bearish'
+                logger.info(f"Crossover Bearish ditemukan untuk {kode_saham} pada {tanggal}")
+
+        # Buat grafik
+        plt.style.use('default')  # Ganti 'seaborn' dengan 'default'
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [2, 1]})
+        
+        # Plot harga penutupan
+        ax1.plot(df['Date'], prices, label='Close Price', color='blue')
+        ax1.set_title(f'MACD untuk {kode_saham} ({nama_perusahaan}) pada {tanggal}')
+        ax1.set_ylabel('Harga Penutupan (Rp)')
+        ax1.legend()
+        ax1.grid(True)
+
+        # Plot MACD
+        ax2.plot(df['Date'], macd, label='MACD Line', color='orange')
+        ax2.plot(df['Date'], signal, label='Signal Line', color='red')
+        ax2.bar(df['Date'], histogram, label='Histogram', color='gray', alpha=0.4)
+        ax2.set_ylabel('MACD')
+        ax2.legend()
+        ax2.grid(True)
+
+        # Rotasi label tanggal
+        plt.setp(ax1.get_xticklabels(), rotation=45)
+        plt.setp(ax2.get_xticklabels(), rotation=45)
+        plt.tight_layout()
+
+        # Simpan grafik ke file sementara
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
+            temp_file_path = temp_file.name
+            plt.savefig(temp_file_path, format="png", bbox_inches='tight')
+            plt.close(fig)
+            logger.info(f"Gambar grafik MACD disimpan di {temp_file_path}")
+
+        # Kirim grafik ke Telegram
+        if os.path.exists(temp_file_path):
+            await message.answer_photo(
+                FSInputFile(path=temp_file_path, filename=f"macd_{kode_saham}_{tanggal}.png"),
+                caption=(
+                    f"MACD untuk {kode_saham} ({nama_perusahaan}) pada {tanggal}\n"
+                    f"Status: {'Crossover ' + cross_type if cross_type else 'Tidak ada crossover'}"
+                )
+            )
+            logger.info(f"Gambar MACD untuk {kode_saham} dikirim")
+            try:
+                os.remove(temp_file_path)
+                logger.info(f"File sementara {temp_file_path} dihapus")
+            except Exception as e:
+                logger.error(f"Gagal menghapus file sementara {temp_file_path}: {e}")
+        else:
+            logger.error(f"File gambar {temp_file_path} tidak ditemukan")
+            await message.answer(f"Error: File gambar MACD tidak ditemukan")
+
+    except Exception as e:
+        logger.error(f"Error saat mengambil atau membuat grafik MACD untuk {kode_saham}: {e}")
+        await message.answer(f"Error saat mengambil atau membuat grafik MACD: {e}")
+    finally:
+        cur.close()
+        conn.close()
+        logger.info("Koneksi database ditutup")
+
+@router.message(Command("mash"))
+async def cmd_mash(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /mash
+    logger.info(f"Perintah /mash diterima dari user_id: {user_id}, argumen: {args}")
+    
+    tanggal = args[0] if args else None
+    
+    if tanggal:
+        try:
+            datetime.strptime(tanggal, '%Y-%m-%d')
+        except ValueError:
+            logger.error(f"Format tanggal salah: {tanggal} dari user_id: {user_id}")
+            await message.answer("Format tanggal salah. Gunakan YYYY-MM-DD, misalnya: 2025-08-14")
+            return
+    else:
+        # Gunakan tanggal terbaru dari database
+        try:
+            conn = psycopg2.connect(**db_config)
+            cur = conn.cursor()
+            query = sql.SQL('SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table}').format(table=sql.Identifier('saham_data'))
+            cur.execute(query)
+            max_date = cur.fetchone()[0]
+            tanggal = max_date.strftime('%Y-%m-%d') if max_date else datetime.now().strftime('%Y-%m-%d')
+            logger.info(f"Tanggal terbaru dari database: {tanggal}")
+            cur.close()
+            conn.close()
+        except Exception as e:
+            logger.error(f"Error saat mengambil tanggal terbaru: {e}")
+            await message.answer(f"Error saat mengambil tanggal terbaru: {e}")
+            return
+
+    try:
+        logger.info(f"Membuka koneksi database untuk query /mash: {tanggal}")
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+    except Exception as e:
+        logger.error(f"Error koneksi ke database: {e}")
+        await message.answer(f"Error koneksi ke database: {e}")
+        return
+
+    try:
+        # Dapatkan list kode saham unik pada tanggal tersebut
+        query_saham = sql.SQL('''
+        SELECT DISTINCT "Kode Saham", "Nama Perusahaan", "Penutupan", "Selisih", "Sebelumnya", "Volume", "Nilai"
+        FROM {table}
+        WHERE "Tanggal Perdagangan Terakhir" = %s
+        ''').format(table=sql.Identifier('saham_data'))
+        cur.execute(query_saham, (tanggal,))
+        saham_list = cur.fetchall()
+        logger.info(f"Memproses {len(saham_list)} saham untuk MACD Crossover dan Stochastic Oversold pada {tanggal}")
+
+        results = []
+        for row in saham_list:
+            kode_saham, nama_perusahaan, penutupan, selisih, sebelumnya, volume, nilai = row
+            
+            # Ambil data historis 50 hari terakhir untuk saham ini hingga tanggal
+            query_hist = sql.SQL('''
+            SELECT "Tanggal Perdagangan Terakhir", "Penutupan", "Tertinggi", "Terendah"
+            FROM {table}
+            WHERE "Kode Saham" = %s AND "Tanggal Perdagangan Terakhir" <= %s
+            ORDER BY "Tanggal Perdagangan Terakhir" ASC
+            LIMIT 50
+            ''').format(table=sql.Identifier('saham_data'))
+            cur.execute(query_hist, (kode_saham, tanggal))
+            hist_data = cur.fetchall()
+            
+            if len(hist_data) < 35:  # Minimal untuk MACD dan Stochastic (14 hari + buffer)
+                logger.debug(f"Kode Saham {kode_saham} memiliki {len(hist_data)} hari data, dilewati")
+                continue
+            
+            # Buat DataFrame dan konversi ke float
+            df = pd.DataFrame(hist_data, columns=['Date', 'Close', 'High', 'Low'])
+            df['Date'] = pd.to_datetime(df['Date'])
+            df['Close'] = df['Close'].astype(float)  # Konversi ke float
+            df['High'] = df['High'].astype(float)    # Konversi ke float
+            df['Low'] = df['Low'].astype(float)      # Konversi ke float
+            prices = df['Close']
+            highs = df['High']
+            lows = df['Low']
+            
+            # Hitung MACD untuk Bullish Crossover
+            ema12 = prices.ewm(span=12, adjust=False).mean()
+            ema26 = prices.ewm(span=26, adjust=False).mean()
+            macd = ema12 - ema26
+            signal = macd.ewm(span=9, adjust=False).mean()
+            
+            macd_bullish_cross = False
+            if len(macd) >= 2 and len(signal) >= 2:
+                if macd.iloc[-1] > signal.iloc[-1] and macd.iloc[-2] <= signal.iloc[-2]:
+                    macd_bullish_cross = True
+                    logger.info(f"MACD Bullish Crossover ditemukan untuk {kode_saham}")
+            
+            # Hitung Stochastic Oscillator (14 periode)
+            stochastic_period = 14
+            if len(df) < stochastic_period:
+                continue
+            
+            # Hitung %K dan %D untuk 14 hari terakhir
+            low_min = lows.rolling(window=stochastic_period).min()
+            high_max = highs.rolling(window=stochastic_period).max()
+            k = 100 * (prices - low_min) / (high_max - low_min)
+            d = k.rolling(window=3).mean()  # %D adalah SMA 3 dari %K
+            
+            stochastic_oversold = False
+            if pd.notna(k.iloc[-1]) and pd.notna(d.iloc[-1]) and k.iloc[-1] < 20 and d.iloc[-1] < 20:
+                stochastic_oversold = True
+                logger.info(f"Stochastic Oversold ditemukan untuk {kode_saham}")
+            
+            # Kondisi potensi reversal: MACD Bullish Cross DAN Stochastic Oversold
+            if macd_bullish_cross and stochastic_oversold:
+                persentase = (selisih / sebelumnya * 100) if sebelumnya else 0
+                results.append((kode_saham, nama_perusahaan, persentase, penutupan, 'Bullish Reversal', volume, nilai))
+
+        if results:
+            # Sort results berdasarkan persentase (descending)
+            results.sort(key=lambda x: x[2], reverse=True)
+            
+            # Buat output teks
+            response = f"Saham dengan MACD Bullish Crossover dan Stochastic Oversold (Potensi Reversal) pada {tanggal}:\n\n"
+            response += "```\n"
+            response += "| Ticker | Company Name          | Change (%)    | Close     | Signal Type   | Volume      | Value (Rp) |\n"
+            response += "|--------|-----------------------|---------------|-----------|---------------|-------------|------------|\n"
+            for row in results:
+                kode_saham, nama_perusahaan, persentase, penutupan, signal_type, volume, nilai = row
+                nama_perusahaan = nama_perusahaan[:20] + "..." if len(nama_perusahaan) > 20 else nama_perusahaan
+                emoji = "🟢" if persentase > 0 else "🔴" if persentase < 0 else ""
+                response += (
+                    f"| {kode_saham:<6} | {nama_perusahaan:<21} | {emoji} {persentase:>6.2f}% | {penutupan:>9.2f} | {signal_type:<13} | {volume:>11,d} | {format_value(nilai):>10} |\n"
+                )
+            response += "```"
+
+            # Buat dan kirim gambar tabel
+            title = f"Saham dengan MACD & Stochastic Oversold (Potensi Reversal) pada {tanggal}"
+            try:
+                image_files = create_table_image(results, title, is_macd=True)
+                for i, temp_file in enumerate(image_files, 1):
+                    if os.path.exists(temp_file):
+                        logger.info(f"Mengirim gambar {temp_file} sebagai bagian {i}")
+                        await message.answer_photo(FSInputFile(path=temp_file, filename=f"mash_part_{i}.png"))
+                        logger.info(f"Gambar {temp_file} dikirim sebagai bagian {i}")
+                        try:
+                            os.remove(temp_file)
+                            logger.info(f"File sementara {temp_file} dihapus")
+                        except Exception as e:
+                            logger.error(f"Gagal menghapus file sementara {temp_file}: {e}")
+                    else:
+                        logger.error(f"File gambar {temp_file} tidak ditemukan")
+                        await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+            except Exception as e:
+                logger.error(f"Error saat membuat atau mengirim gambar: {e}")
+                await message.answer(f"Error saat membuat atau mengirim gambar: {e}")
+
+            # Kirim teks sebagai cadangan
+            if len(response) > 4000:
+                response_parts = []
+                lines = response.split('\n')
+                current_part = "```\n"
+                for line in lines[2:]:
+                    if len(current_part) + len(line) + 1 > 4000:
+                        response_parts.append(current_part + "```")
+                        current_part = "```\n" + line + "\n"
+                    else:
+                        current_part += line + "\n"
+                if current_part.strip():
+                    response_parts.append(current_part + "```")
+                for i, part in enumerate(response_parts, 1):
+                    await message.answer(part)
+                    logger.info(f"Bagian teks {i} dikirim")
+            else:
+                await message.answer(response)
+            logger.info(f"Saham dengan potensi reversal ditemukan untuk tanggal: {tanggal}, jumlah: {len(results)}")
+        else:
+            logger.warning(f"Tidak ditemukan saham dengan MACD Bullish Crossover dan Stochastic Oversold untuk tanggal: {tanggal}")
+            await message.answer(
+                f"Tidak ditemukan saham dengan MACD Bullish Crossover dan Stochastic Oversold (potensi reversal) untuk tanggal {tanggal}. "
+                f"Pastikan database memiliki data High, Low, Close untuk setidaknya 35 hari historis per saham."
+            )
+    except Exception as e:
+        logger.error(f"Error saat mengambil data untuk /mash: {e}")
+        await message.answer(f"Error saat mengambil data untuk /mash: {e}")
+    finally:
+        cur.close()
+        conn.close()
+        logger.info("Koneksi database ditutup")   
+
+import numpy as np  # Tambahkan impor numpy
+
+@router.message(Command("stoch"))
+async def cmd_stoch(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /stoch
+    logger.info(f"Perintah /stoch diterima dari user_id: {user_id}, argumen: {args}")
+    
+    tanggal = args[0] if args else None
+    
+    if tanggal:
+        try:
+            datetime.strptime(tanggal, '%Y-%m-%d')
+        except ValueError:
+            logger.error(f"Format tanggal salah: {tanggal} dari user_id: {user_id}")
+            await message.answer("Format tanggal salah. Gunakan YYYY-MM-DD, misalnya: 2025-08-14")
+            return
+    else:
+        # Gunakan tanggal terbaru dari database
+        try:
+            conn = psycopg2.connect(**db_config)
+            cur = conn.cursor()
+            query = sql.SQL('SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table}').format(table=sql.Identifier('saham_data'))
+            cur.execute(query)
+            max_date = cur.fetchone()[0]
+            tanggal = max_date.strftime('%Y-%m-%d') if max_date else datetime.now().strftime('%Y-%m-%d')
+            logger.info(f"Tanggal terbaru dari database: {tanggal}")
+            cur.close()
+            conn.close()
+        except Exception as e:
+            logger.error(f"Error saat mengambil tanggal terbaru: {e}")
+            await message.answer(f"Error saat mengambil tanggal terbaru: {e}")
+            return
+
+    try:
+        logger.info(f"Membuka koneksi database untuk query /stoch: {tanggal}")
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+    except Exception as e:
+        logger.error(f"Error koneksi ke database: {e}")
+        await message.answer(f"Error koneksi ke database: {e}")
+        return
+
+    try:
+        # Dapatkan list kode saham unik pada tanggal tersebut
+        query_saham = sql.SQL('''
+        SELECT DISTINCT "Kode Saham", "Nama Perusahaan", "Penutupan", "Selisih", "Sebelumnya", "Volume", "Nilai"
+        FROM {table}
+        WHERE "Tanggal Perdagangan Terakhir" = %s
+        ''').format(table=sql.Identifier('saham_data'))
+        cur.execute(query_saham, (tanggal,))
+        saham_list = cur.fetchall()
+        logger.info(f"Memproses {len(saham_list)} saham untuk Stochastic Oversold pada {tanggal}")
+
+        results = []
+        for row in saham_list:
+            kode_saham, nama_perusahaan, penutupan, selisih, sebelumnya, volume, nilai = row
+            
+            # Ambil data historis 50 hari terakhir untuk saham ini hingga tanggal
+            query_hist = sql.SQL('''
+            SELECT "Tanggal Perdagangan Terakhir", "Penutupan", "Tertinggi", "Terendah"
+            FROM {table}
+            WHERE "Kode Saham" = %s AND "Tanggal Perdagangan Terakhir" <= %s
+            ORDER BY "Tanggal Perdagangan Terakhir" ASC
+            LIMIT 50
+            ''').format(table=sql.Identifier('saham_data'))
+            cur.execute(query_hist, (kode_saham, tanggal))
+            hist_data = cur.fetchall()
+            
+            if len(hist_data) < 14:  # Minimal untuk Stochastic 14 periode
+                logger.debug(f"Kode Saham {kode_saham} memiliki {len(hist_data)} hari data, dilewati")
+                continue
+            
+            # Buat DataFrame dan konversi ke float
+            df = pd.DataFrame(hist_data, columns=['Date', 'Close', 'High', 'Low'])
+            df['Date'] = pd.to_datetime(df['Date'])
+            df['Close'] = df['Close'].astype(float)
+            df['High'] = df['High'].astype(float)
+            df['Low'] = df['Low'].astype(float)
+            
+            if df[['Close', 'High', 'Low']].isna().any().any():
+                logger.debug(f"Kode Saham {kode_saham} memiliki nilai NULL di Close, High, atau Low, dilewati")
+                continue
+            
+            prices = df['Close']
+            highs = df['High']
+            lows = df['Low']
+            
+            # Hitung Stochastic Oscillator (14 periode)
+            stochastic_period = 14
+            low_min = lows.rolling(window=stochastic_period).min()
+            high_max = highs.rolling(window=stochastic_period).max()
+            k = 100 * (prices - low_min) / (high_max - low_min).replace(0, np.nan)
+            d = k.rolling(window=3).mean()
+            
+            if pd.notna(k.iloc[-1]) and pd.notna(d.iloc[-1]) and k.iloc[-1] < 20 and d.iloc[-1] < 20:
+                persentase = (selisih / sebelumnya * 100) if sebelumnya else 0
+                stochastic_level = f"%K={k.iloc[-1]:.2f}, %D={d.iloc[-1]:.2f}"
+                results.append((kode_saham, nama_perusahaan, persentase, penutupan, stochastic_level, volume, nilai))
+                logger.info(f"Stochastic Oversold ditemukan untuk {kode_saham} ({stochastic_level})")
+
+        if results:
+            # Sort results berdasarkan %K ascending (paling oversold di atas)
+            results.sort(key=lambda x: float(x[4].split(',')[0].split('=')[1]))
+            
+            # Buat output teks
+            response = f"Saham dengan Stochastic Oversold (< 20%) pada {tanggal}:\n\n"
+            response += "```\n"
+            response += "| Ticker | Company Name          | Change (%)    | Close     | Stochastic (%K/%D) | Volume      | Value (Rp) |\n"
+            response += "|--------|-----------------------|---------------|-----------|--------------------|-------------|------------|\n"
+            for row in results:
+                kode_saham, nama_perusahaan, persentase, penutupan, stochastic_level, volume, nilai = row
+                nama_perusahaan = nama_perusahaan[:20] + "..." if len(nama_perusahaan) > 20 else nama_perusahaan
+                emoji = "🟢" if persentase > 0 else "🔴" if persentase < 0 else ""
+                response += (
+                    f"| {kode_saham:<6} | {nama_perusahaan:<21} | {emoji} {persentase:>6.2f}% | {penutupan:>9.2f} | {stochastic_level:<18} | {volume:>11,d} | {format_value(nilai):>10} |\n"
+                )
+            response += "```"
+
+            # Buat dan kirim gambar tabel
+            title = f"Saham dengan Stochastic Oversold (< 20%) pada {tanggal}"
+            try:
+                image_files = create_table_image(results, title, is_macd=True)
+                for i, temp_file in enumerate(image_files, 1):
+                    if os.path.exists(temp_file):
+                        logger.info(f"Mengirim gambar {temp_file} sebagai bagian {i}")
+                        await message.answer_photo(FSInputFile(path=temp_file, filename=f"stoch_part_{i}.png"))
+                        logger.info(f"Gambar {temp_file} dikirim sebagai bagian {i}")
+                        try:
+                            os.remove(temp_file)
+                            logger.info(f"File sementara {temp_file} dihapus")
+                        except Exception as e:
+                            logger.error(f"Gagal menghapus file sementara {temp_file}: {e}")
+                    else:
+                        logger.error(f"File gambar {temp_file} tidak ditemukan")
+                        await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+            except Exception as e:
+                logger.error(f"Error saat membuat atau mengirim gambar: {e}")
+                await message.answer(f"Error saat membuat atau mengirim gambar: {e}")
+
+            # Kirim teks sebagai cadangan
+            if len(response) > 4000:
+                response_parts = []
+                lines = response.split('\n')
+                current_part = "```\n"
+                for line in lines[2:]:
+                    if len(current_part) + len(line) + 1 > 4000:
+                        response_parts.append(current_part + "```")
+                        current_part = "```\n" + line + "\n"
+                    else:
+                        current_part += line + "\n"
+                if current_part.strip():
+                    response_parts.append(current_part + "```")
+                for i, part in enumerate(response_parts, 1):
+                    await message.answer(part)
+                    logger.info(f"Bagian teks {i} dikirim")
+            else:
+                await message.answer(response)
+            logger.info(f"Saham Stochastic Oversold ditemukan untuk tanggal: {tanggal}, jumlah: {len(results)}")
+        else:
+            logger.warning(f"Tidak ditemukan saham dengan Stochastic Oversold untuk tanggal: {tanggal}")
+            await message.answer(
+                f"Tidak ditemukan saham dengan Stochastic Oversold (< 20%) untuk tanggal {tanggal}. "
+                f"Pastikan database memiliki data High, Low, Close untuk setidaknya 14 hari historis per saham."
+            )
+    except Exception as e:
+        logger.error(f"Error saat mengambil data untuk /stoch: {e}")
+        await message.answer(f"Error saat mengambil data untuk /stoch: {e}")
+    finally:
+        cur.close()
+        conn.close()
+        logger.info("Koneksi database ditutup")  
+
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.dates import DateFormatter
+
+@router.message(Command("stochg"))
+async def cmd_stoch_graph(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /stoch
+    logger.info(f"Perintah /stochg diterima dari user_id: {user_id}, argumen: {args}")
+
+    # Periksa argumen
+    if len(args) == 1:
+        kode_saham = args[0].upper()
+        tanggal = None
+    elif len(args) == 2:
+        try:
+            tanggal = datetime.strptime(args[0], '%Y-%m-%d').strftime('%Y-%m-%d')
+            kode_saham = args[1].upper()
+        except ValueError:
+            logger.error(f"Format tanggal salah: {args[0]} dari user_id: {user_id}")
+            await message.answer("Format tanggal salah. Gunakan /stochg [yyyy-mm-dd] <saham>, misalnya: /stochg 2025-08-14 BBCA")
+            return
+    else:
+        logger.error(f"Argumen tidak valid dari user_id: {user_id}, argumen: {args}")
+        await message.answer("Gunakan /stochg <saham> atau /stochg yyyy-mm-dd <saham>, misalnya: /stochg BBCA atau /stochg 2025-08-14 BBCA")
+        return
+
+    # Ambil tanggal terbaru jika tidak ada tanggal
+    if not tanggal:
+        try:
+            conn = psycopg2.connect(**db_config)
+            cur = conn.cursor()
+            query = sql.SQL('SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table}').format(table=sql.Identifier('saham_data'))
+            cur.execute(query)
+            max_date = cur.fetchone()[0]
+            tanggal = max_date.strftime('%Y-%m-%d') if max_date else datetime.now().strftime('%Y-%m-%d')
+            logger.info(f"Tanggal terbaru dari database untuk {kode_saham}: {tanggal}")
+            cur.close()
+            conn.close()
+        except Exception as e:
+            logger.error(f"Error saat mengambil tanggal terbaru: {e}")
+            await message.answer(f"Error saat mengambil tanggal terbaru: {e}")
+            return
+
+    try:
+        logger.info(f"Membuka koneksi database untuk query /stoch {kode_saham} pada {tanggal}")
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+    except Exception as e:
+        logger.error(f"Error koneksi ke database: {e}")
+        await message.answer(f"Error koneksi ke database: {e}")
+        return
+
+    try:
+        # Ambil data historis 50 hari untuk saham
+        query_hist = sql.SQL('''
+        SELECT "Tanggal Perdagangan Terakhir", "Penutupan", "Tertinggi", "Terendah", "Volume"
+        FROM {table}
+        WHERE "Kode Saham" = %s AND "Tanggal Perdagangan Terakhir" <= %s
+        ORDER BY "Tanggal Perdagangan Terakhir" ASC
+        LIMIT 50
+        ''').format(table=sql.Identifier('saham_data'))
+        cur.execute(query_hist, (kode_saham, tanggal))
+        hist_data = cur.fetchall()
+
+        if len(hist_data) < 14:
+            logger.warning(f"Kode Saham {kode_saham} hanya memiliki {len(hist_data)} hari data, minimal 14 diperlukan")
+            await message.answer(f"Data tidak cukup untuk {kode_saham} pada {tanggal}. Diperlukan minimal 14 hari data historis.")
+            return
+
+        # Buat DataFrame dan konversi ke float
+        df = pd.DataFrame(hist_data, columns=['Date', 'Close', 'High', 'Low', 'Volume'])
+        df['Date'] = pd.to_datetime(df['Date'])
+        df['Close'] = df['Close'].astype(float)
+        df['High'] = df['High'].astype(float)
+        df['Low'] = df['Low'].astype(float)
+        df['Volume'] = df['Volume'].astype(float)
+
+        if df[['Close', 'High', 'Low', 'Volume']].isna().any().any():
+            logger.warning(f"Kode Saham {kode_saham} memiliki nilai NULL di Close, High, Low, atau Volume")
+            await message.answer(f"Data tidak valid untuk {kode_saham} pada {tanggal}. Terdapat nilai NULL di harga atau volume.")
+            return
+
+        prices = df['Close']
+        highs = df['High']
+        lows = df['Low']
+        volumes = df['Volume']
+
+        # Hitung Stochastic Oscillator (14 periode)
+        stochastic_period = 14
+        low_min = lows.rolling(window=stochastic_period).min()
+        high_max = highs.rolling(window=stochastic_period).max()
+        k = 100 * (prices - low_min) / (high_max - low_min).replace(0, np.nan)
+        d = k.rolling(window=3).mean()
+
+        if pd.isna(k.iloc[-1]) or pd.isna(d.iloc[-1]):
+            logger.warning(f"Kode Saham {kode_saham} memiliki nilai Stochastic tidak valid pada {tanggal}")
+            await message.answer(f"Nilai Stochastic tidak valid untuk {kode_saham} pada {tanggal}. Pastikan data High dan Low valid.")
+            return
+
+        # Hitung rasio volume (volume hari ini / average 10 hari terakhir)
+        avg_volume_10 = volumes.rolling(window=10).mean().iloc[-1] if len(volumes) >= 10 else volumes.mean()
+        volume_today = volumes.iloc[-1]
+        volume_ratio = volume_today / avg_volume_10 if avg_volume_10 > 0 else 0
+
+        # Deteksi akumulasi/distribusi berdasarkan rasio volume dan change harga
+        selisih = prices.iloc[-1] - prices.iloc[-2] if len(prices) >= 2 else 0
+        persentase = (selisih / prices.iloc[-2] * 100) if len(prices) >= 2 and prices.iloc[-2] > 0 else 0
+        status_volume = "Akumulasi" if volume_ratio > 1 and persentase > 0 else "Distribusi" if volume_ratio > 1 and persentase < 0 else "Normal"
+
+        # Buat grafik
+        plt.style.use('default')
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 10), sharex=True, gridspec_kw={'height_ratios': [2, 1, 1]})
+
+        # Plot harga penutupan
+        ax1.plot(df['Date'], df['Close'], label='Close Price', color='blue')
+        ax1.set_title(f'Harga Saham, Stochastic Oscillator, dan Volume untuk {kode_saham} hingga {tanggal}')
+        ax1.set_ylabel('Harga Penutupan (Rp)')
+        ax1.legend(loc='upper left')
+        ax1.grid(True)
+
+        # Plot Stochastic Oscillator
+        ax2.plot(df['Date'], k, label='%K', color='blue')
+        ax2.plot(df['Date'], d, label='%D', color='red', linestyle='--')
+        ax2.axhline(y=80, color='orange', linestyle='--', label='Overbought (80)')
+        ax2.axhline(y=20, color='green', linestyle='--', label='Oversold (20)')
+        ax2.set_title('Stochastic Oscillator (%K, %D)')
+        ax2.set_ylabel('Stochastic (%)')
+        ax2.legend(loc='upper left')
+        ax2.grid(True)
+
+        # Plot volume
+        ax3.bar(df['Date'], df['Volume'], label='Volume', color='gray')
+        ax3.set_title('Volume Perdagangan')
+        ax3.set_ylabel('Volume')
+        ax3.legend(loc='upper left')
+        ax3.grid(True)
+
+        # Format sumbu X
+        ax3.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+
+        # Simpan grafik ke file sementara
+        temp_file = f"stoch_{kode_saham}_{tanggal}.png"
+        plt.savefig(temp_file, dpi=150, bbox_inches='tight')
+        plt.close(fig)
+        logger.info(f"Grafik disimpan sebagai {temp_file}")
+
+        # Kirim grafik
+        if os.path.exists(temp_file):
+            # Kirim pesan teks dengan nilai %K, %D, rasio volume, dan status
+            stochastic_status = "Oversold" if k.iloc[-1] < 20 and d.iloc[-1] < 20 else "Normal"
+            response = (
+                f"Stochastic Oscillator untuk {kode_saham} pada {tanggal}:\n"
+                f"%K = {k.iloc[-1]:.2f}, %D = {d.iloc[-1]:.2f} ({stochastic_status})\n"
+                f"Rasio Volume: {volume_ratio:.2f} (Volume Hari Ini / Average 10 Hari)\n"
+                f"Status Volume: {status_volume}"
+            )
+            await message.answer(response)
+            logger.info(f"Status Stochastic dan Volume untuk {kode_saham}: {response}")
+
+            # Kirim gambar
+            await message.answer_photo(FSInputFile(path=temp_file, filename=f"stoch_{kode_saham}_{tanggal}.png"))
+            logger.info(f"Grafik {temp_file} dikirim")
+            try:
+                os.remove(temp_file)
+                logger.info(f"File sementara {temp_file} dihapus")
+            except Exception as e:
+                logger.error(f"Gagal menghapus file sementara {temp_file}: {e}")
+        else:
+            logger.error(f"File grafik {temp_file} tidak ditemukan")
+            await message.answer(f"Error: File grafik untuk {kode_saham} tidak ditemukan")
+
+    except Exception as e:
+        logger.error(f"Error saat mengambil data untuk /stoch {kode_saham}: {e}")
+        await message.answer(f"Error saat mengambil data untuk {kode_saham}: {e}")
+    finally:
+        cur.close()
+        conn.close()
+        logger.info("Koneksi database ditutup")        
+
+@router.message(Command("hft"))
+async def cmd_hft(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /hft
+    logger.info(f"Perintah /hft diterima dari user_id: {user_id}, argumen: {args}")
+    
+    period = 90  # Default periode hari
+    if args and args[-1].isdigit():
+        period = int(args[-1])
+        args = args[:-1]
+    
+    if args:  # /hft <saham> [period]
+        kode_saham = args[0].upper()
+        await hft_single_stock(message, kode_saham, period)
+    else:  # /hft [period] untuk scan semua
+        await hft_scan_all(message, period)
+
+async def hft_single_stock(message: Message, kode_saham: str, period: int):
+    try:
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+        
+        # Ambil data historis
+        query = sql.SQL('''
+        SELECT "Tanggal Perdagangan Terakhir" AS "Date", "Penutupan" AS "Close", "Tertinggi" AS "High", "Terendah" AS "Low", "Volume"
+        FROM {table}
+        WHERE "Kode Saham" = %s
+        ORDER BY "Date" DESC
+        LIMIT %s
+        ''').format(table=sql.Identifier('saham_data'))
+        cur.execute(query, (kode_saham, period * 2))  # Ambil extra untuk safety
+        hist_data = cur.fetchall()
+        
+        if not hist_data:
+            await message.answer(f"Tidak ditemukan data untuk {kode_saham}.")
+            return
+        
+        df = pd.DataFrame(hist_data, columns=['Date', 'Close', 'High', 'Low', 'Volume'])
+        df['Date'] = pd.to_datetime(df['Date'])
+        
+        vol, mdd, max_gain, max_gain_date, max_loss, max_loss_date, adr, avg_vol = calculate_volatility_and_drawdown(df, period)
+        if vol is None:
+            await message.answer(f"Data tidak cukup untuk analisis {kode_saham}.")
+            return
+        
+        classification = classify_stock(vol, avg_vol)
+        response = (
+            f"Analisis HFT untuk {kode_saham} (Periode: {period} hari):\n"
+            f"Volatilitas: {vol:.2f}% ({classification})\n"
+            f"Max Drawdown: {mdd:.2f}%\n"
+            f"Kenaikan Tertinggi: {max_gain:.2f}% pada {max_gain_date}\n"
+            f"Penurunan Tertinggi: {max_loss:.2f}% pada {max_loss_date}\n"
+            f"ADR: {adr:.2f}%\n"
+            f"Avg Volume: {format_value(avg_vol)}\n"
+            f"Saran Money Mgmt: Risk max 1% per trade, stop-loss {adr/2:.2f}% dari entry."
+        )
+        await message.answer(response)
+        
+        # Generate Grafik: Harga dengan Drawdown
+        plt.figure(figsize=(10, 6))
+        plt.plot(df['Date'], df['Close'], label='Close')
+        plt.fill_between(df['Date'], df['Close'], df['Close'].cummax(), where=(df['Drawdown'] > 0), color='red', alpha=0.3, label='Drawdown')
+        plt.title(f"Grafik Harga & Drawdown {kode_saham}")
+        plt.legend()
+        plt.grid(True)
+        plt.xticks(rotation=45)
+        
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
+            temp_file_path = temp_file.name
+            plt.savefig(temp_file_path)
+            plt.close()
+        
+        await message.answer_photo(FSInputFile(path=temp_file_path))
+        os.remove(temp_file_path)
+        
+    except Exception as e:
+        await message.answer(f"Error: {e}")
+    finally:
+        cur.close()
+        conn.close()
+
+async def hft_scan_all(message: Message, period: int):
+    try:
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+        
+        # Ambil saham unik (batasi 500 untuk performance)
+        query_saham = sql.SQL('SELECT DISTINCT "Kode Saham" FROM {table} LIMIT 500').format(table=sql.Identifier('saham_data'))
+        cur.execute(query_saham)
+        saham_list = [row[0] for row in cur.fetchall()]
+        
+        results = []
+        for kode in saham_list:
+            query = sql.SQL('''
+            SELECT "Tanggal Perdagangan Terakhir" AS "Date", "Penutupan" AS "Close", "Tertinggi" AS "High", "Terendah" AS "Low", "Volume"
+            FROM {table}
+            WHERE "Kode Saham" = %s
+            ORDER BY "Date" DESC
+            LIMIT %s
+            ''').format(table=sql.Identifier('saham_data'))
+            cur.execute(query, (kode, period * 2))
+            hist_data = cur.fetchall()
+            if len(hist_data) < period // 2: continue
+            
+            df = pd.DataFrame(hist_data, columns=['Date', 'Close', 'High', 'Low', 'Volume'])
+            df['Date'] = pd.to_datetime(df['Date'])
+            
+            vol, mdd, _, _, _, _, adr, avg_vol = calculate_volatility_and_drawdown(df, period)
+            if vol is None: continue
+            
+            classification = classify_stock(vol, avg_vol)
+            if "Aktif" in classification:
+                results.append((kode, vol, mdd, adr, avg_vol))
+        
+        if results:
+            results.sort(key=lambda x: x[1], reverse=True)  # Sort by vol desc
+            table_data = [(r[0], f"{r[1]:.2f}%", f"{r[2]:.2f}%", f"{r[3]:.2f}%", format_value(r[4])) for r in results[:30]]
+            title = f"Top 30 Saham Aktif untuk HFT (Periode: {period} hari)"
+            image_files = create_table_image(table_data, title, headers=["Ticker", "Volatilitas", "Max Drawdown", "ADR", "Avg Volume"])
+            for file in image_files:
+                await message.answer_photo(FSInputFile(path=file))
+                os.remove(file)
+            await message.answer(f"{len(results)} saham aktif ditemukan. Tampilkan top 30.")
+        else:
+            await message.answer("Tidak ditemukan saham aktif.")
+    
+    except Exception as e:
+        await message.answer(f"Error: {e}")
+    finally:
+        cur.close()
+        conn.close()   
+
+@router.message(Command("bandar"))
+async def cmd_bandar(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]
+    logger.info(f"Perintah /bandar diterima dari user_id: {user_id}, argumen: {args}")
+    
+    if not args:
+        await message.answer("Gunakan /bandar <kode_saham> [yyyy-mm-dd] [jumlah_hari], misalnya: /bandar BBCA 2025-08-21 30")
+        return
+    
+    kode_saham = args[0].upper()
+    tanggal = args[1] if len(args) > 1 else None
+    jumlah_hari = int(args[2]) if len(args) > 2 else 30
+    
+    if tanggal:
+        try:
+            tanggal_akhir = datetime.strptime(tanggal, '%Y-%m-%d')
+        except ValueError:
+            logger.error(f"Format tanggal salah: {tanggal} dari user_id: {user_id}")
+            await message.answer("Format tanggal salah. Gunakan YYYY-MM-DD, misalnya: 2025-08-21")
+            return
+    else:
+        try:
+            conn = psycopg2.connect(**db_config)
+            cur = conn.cursor()
+            query = sql.SQL('SELECT MAX("Tanggal Perdagangan Terakhir") FROM {table}').format(table=sql.Identifier('saham_data'))
+            cur.execute(query)
+            max_date = cur.fetchone()[0]
+            tanggal_akhir = max_date if max_date else datetime.now()
+            tanggal = tanggal_akhir.strftime('%Y-%m-%d')
+            logger.info(f"Tanggal terbaru dari database: {tanggal}")
+            cur.close()
+            conn.close()
+        except Exception as e:
+            logger.error(f"Error saat mengambil tanggal terbaru: {e}")
+            await message.answer(f"Error saat mengambil tanggal terbaru: {e}")
+            return
+    
+    tanggal_awal = tanggal_akhir - timedelta(days=jumlah_hari - 1)
+    tanggal_awal_str = tanggal_awal.strftime('%Y-%m-%d')
+    
+    try:
+        logger.info(f"Membuka koneksi database untuk query /bandar: {kode_saham}, periode {tanggal_awal_str} hingga {tanggal}")
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+        
+        broker_codes = [
+            'ad', 'af', 'ag', 'ah', 'ai', 'ak', 'an', 'ao', 'ap', 'ar', 'at', 'az', 'bb', 'bf', 'bk',
+            'bq', 'br', 'bs', 'cc', 'cd', 'cp', 'dd', 'dh', 'dp', 'dr', 'du', 'dx', 'el', 'ep', 'es',
+            'fo', 'fs', 'fz', 'ga', 'gi', 'gr', 'gw', 'hd', 'hp', 'ic', 'id', 'if', 'ih', 'ii', 'in',
+            'ip', 'it', 'iu', 'jb', 'ki', 'kk', 'kz', 'lg', 'ls', 'mg', 'mi', 'mu', 'ni', 'od',
+            'ok', 'pc', 'pd', 'pf', 'pg', 'pi', 'po', 'pp', 'ps', 'qa', 'rb', 'rf', 'rg', 'ro', 'rs',
+            'rx', 'sa', 'sf', 'sh', 'sq', 'ss', 'tf', 'tp', 'ts', 'xa', 'xc', 'xl', 'yb', 'yj', 'yo',
+            'yp', 'yu', 'zp', 'zr'
+        ]
+        
+        query_parts = []
+        for broker_code in broker_codes:
+            query_parts.append(sql.SQL('''
+                SELECT kode_broker, buy_freq, buy_vol, sell_freq, sell_vol,
+                       (buy_vol - sell_vol) AS net_vol, buy_avg, sell_avg
+                FROM {table}
+                WHERE code = %s AND date BETWEEN %s AND %s
+            ''').format(
+                table=sql.Identifier(f'{broker_code}_data')
+            ))
+        
+        if jumlah_hari == 1:
+            query = sql.SQL('''
+            SELECT b.kode_broker, COALESCE(bt.nama_broker, 'Unknown Broker') AS nama_broker,
+                   COALESCE(bt.jenis_broker, 'lokal retail') AS jenis_broker,
+                   b.buy_freq, b.buy_vol, b.sell_freq, b.sell_vol,
+                   b.net_vol, b.buy_avg, b.sell_avg
+            FROM (
+                {}
+            ) b
+            LEFT JOIN broker_type bt ON b.kode_broker = bt.kode_broker
+            WHERE b.net_vol != 0
+            ''').format(sql.SQL(' UNION ALL ').join(query_parts))
+        else:
+            query = sql.SQL('''
+            SELECT b.kode_broker, COALESCE(bt.nama_broker, 'Unknown Broker') AS nama_broker,
+                   COALESCE(bt.jenis_broker, 'lokal retail') AS jenis_broker,
+                   SUM(b.buy_freq) AS buy_freq, SUM(b.buy_vol) AS buy_vol,
+                   SUM(b.sell_freq) AS sell_freq, SUM(b.sell_vol) AS sell_vol,
+                   SUM(b.net_vol) AS net_vol,
+                   AVG(b.buy_avg) AS buy_avg, AVG(b.sell_avg) AS sell_avg
+            FROM (
+                {}
+            ) b
+            LEFT JOIN broker_type bt ON b.kode_broker = bt.kode_broker
+            GROUP BY b.kode_broker, bt.nama_broker, bt.jenis_broker
+            HAVING SUM(b.net_vol) != 0
+            ''').format(sql.SQL(' UNION ALL ').join(query_parts))
+        
+        # Eksekusi query utama
+        try:
+            conn.rollback()
+            cur.execute(query, (kode_saham, tanggal_awal_str, tanggal) * len(broker_codes))
+            results = cur.fetchall()
+            logger.info(f"Jumlah broker dengan aktivitas untuk {kode_saham}: {len(results)}")
+        except Exception as e:
+            logger.error(f"Error pada query utama: {e}")
+            results = []
+            conn.rollback()
+        
+        # Cek saham_data
+        try:
+            conn.rollback()
+            cur.execute(
+                sql.SQL('SELECT "Penutupan", "Selisih", "Sebelumnya" FROM {table} WHERE "Kode Saham" = %s AND "Tanggal Perdagangan Terakhir" = %s')
+                .format(table=sql.Identifier('saham_data')),
+                (kode_saham, tanggal)
+            )
+            saham_info = cur.fetchone()
+            logger.info(f"Hasil saham_data untuk {kode_saham} pada {tanggal}: {saham_info}")
+        except Exception as e:
+            logger.error(f"Error saat mengambil saham_data: {e}")
+            saham_info = None
+            conn.rollback()
+        
+        # Sorting berdasarkan net_vol
+        sorted_results = sorted(results, key=lambda x: x[7], reverse=True)
+        
+        # Format output teks
+        response = f"Bandarmology untuk {kode_saham} ({jumlah_hari} hari hingga {tanggal}):\n"
+        if saham_info:
+            try:
+                penutupan, selisih, sebelumnya = saham_info
+                persentase = (selisih / sebelumnya * 100) if sebelumnya and sebelumnya != 0 else 0
+                response += f"Harga Penutupan: {penutupan:.2f} | Perubahan: {persentase:.2f}%\n\n"
+            except Exception as e:
+                logger.error(f"Error saat memproses saham_info: {e}")
+                response += "Data harga saham tidak tersedia.\n\n"
+        else:
+            response += "Data harga saham tidak tersedia untuk tanggal tersebut.\n\n"
+        
+        if sorted_results:
+            total_buy_freq = sum(r[3] for r in sorted_results if r[3] is not None)
+            total_sell_freq = sum(r[5] for r in sorted_results if r[5] is not None)
+            
+            response += "Broker\tBuy\tBuy\tBuy\tBuy\tSell\tSell\tSell\tSell\tNet Vol\n"
+            response += "Broker\tFreq\tVol\tAvg\t%\tFreq\tVol\tAvg\t%\tNet\n"
+            response += "-" * 80 + "\n"
+            
+            for row in sorted_results:
+                kode_broker, nama_broker, jenis_broker, buy_freq, buy_vol, sell_freq, sell_vol, net_vol, buy_avg, sell_avg = row
+                buy_percent = (buy_freq / total_buy_freq * 100) if total_buy_freq > 0 and buy_freq is not None else 0
+                sell_percent = (sell_freq / total_sell_freq * 100) if total_sell_freq > 0 and sell_freq is not None else 0
+                color = '🟥' if jenis_broker.lower() == 'asing' else '🟨' if jenis_broker.lower() == 'bumn' else '🟩'
+                
+                # Format numbers
+                buy_freq = f"{buy_freq}" if buy_freq and buy_freq > 0 else "-"
+                buy_vol = f"{buy_vol:,}" if buy_vol and buy_vol > 0 else "-"
+                sell_freq = f"{sell_freq}" if sell_freq and sell_freq > 0 else "-"
+                sell_vol = f"{sell_vol:,}" if sell_vol and sell_vol > 0 else "-"
+                net_vol = f"({abs(net_vol):,})" if net_vol < 0 else f"{net_vol:,}"
+                buy_avg = f"{buy_avg:.2f}" if buy_avg and buy_avg > 0 else "0"
+                sell_avg = f"{sell_avg:.2f}" if sell_avg and sell_avg > 0 else "0"
+                
+                response += f"{color}{kode_broker}\t{buy_freq}\t{buy_vol}\t{buy_avg}\t{buy_percent:.2f}\t{sell_freq}\t{sell_vol}\t{sell_avg}\t{sell_percent:.2f}\t{net_vol}\n"
+        
+        else:
+            response += f"Tidak ada aktivitas net buy atau net sell yang signifikan untuk {kode_saham} pada periode tersebut.\n"
+        
+        # Kirim response teks
+        if len(response) > 4000:
+            response_parts = []
+            lines = response.split('\n')
+            current_part = ""
+            for line in lines:
+                if len(current_part) + len(line) + 1 > 4000:
+                    response_parts.append(current_part)
+                    current_part = line + "\n"
+                else:
+                    current_part += line + "\n"
+            if current_part.strip():
+                response_parts.append(current_part)
+            for i, part in enumerate(response_parts, 1):
+                await message.answer(part)
+                logger.info(f"Bagian teks bandarmology {i} dikirim")
+        else:
+            await message.answer(response)
+        
+        # Buat dan kirim gambar tabel
+        if sorted_results:
+            title = f"Bandarmology {kode_saham} ({jumlah_hari} hari hingga {tanggal})"
+            # Explicitly convert penutupan to float
+            penutupan = float(saham_info[0]) if saham_info and saham_info[0] is not None else None
+            try:
+                image_files = create_table_image(sorted_results, title, penutupan=penutupan, is_bandar=True)
+                for i, temp_file in enumerate(image_files, 1):
+                    if os.path.exists(temp_file):
+                        logger.info(f"Mengirim gambar {temp_file} sebagai bagian {i}")
+                        await message.answer_photo(FSInputFile(path=temp_file, filename=f"bandar_{kode_saham}_part_{i}.png"))
+                        logger.info(f"Gambar {temp_file} dikirim sebagai bagian {i}")
+                        try:
+                            os.remove(temp_file)
+                            logger.info(f"File sementara {temp_file} dihapus")
+                        except Exception as e:
+                            logger.error(f"Gagal menghapus file sementara {temp_file}: {e}")
+                    else:
+                        logger.error(f"File gambar {temp_file} tidak ditemukan")
+                        await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+            except Exception as e:
+                logger.error(f"Error saat membuat atau mengirim gambar: {e}")
+                await message.answer(f"Error saat membuat atau mengirim gambar: {e}")
+        
+        logger.info(f"Bandarmology untuk {kode_saham} selesai, jumlah broker: {len(sorted_results)}")
+    
+    except Exception as e:
+        logger.error(f"Error saat mengambil data bandarmology: {e}")
+        await message.answer(f"Error saat mengambil data bandarmology: {e}")
+    finally:
+        try:
+            cur.close()
+            conn.close()
+            logger.info("Koneksi database ditutup")
+        except Exception as e:
+            logger.error(f"Error saat menutup koneksi database: {e}")
+
+def get_top_gainers(trade_date):
+    conn = psycopg2.connect(**db_config)
+    cur = conn.cursor()
+    sql = """
+        SELECT symbol, company_name, close, prev_close,
+               ROUND(100.0 * (close - prev_close)/NULLIF(prev_close,0),2) AS change_pct
+        FROM usa_data
+        WHERE trade_date = %s AND prev_close IS NOT NULL
+        ORDER BY change_pct DESC
+        LIMIT 30;
+    """
+    cur.execute(sql, (trade_date,))
+    rows = cur.fetchall()
+    cols = [desc[0] for desc in cur.description]
+    df = pd.DataFrame(rows, columns=cols)
+    cur.close()
+    conn.close()
+    return df
+
+
+def get_top_losers(trade_date):
+    conn = psycopg2.connect(**db_config)
+    cur = conn.cursor()
+    sql = """
+        SELECT symbol, company_name, close, prev_close,
+               ROUND(100.0 * (close - prev_close)/NULLIF(prev_close,0),2) AS change_pct
+        FROM usa_data
+        WHERE trade_date = %s AND prev_close IS NOT NULL
+        ORDER BY change_pct ASC
+        LIMIT 30;
+    """
+    cur.execute(sql, (trade_date,))
+    rows = cur.fetchall()
+    cols = [desc[0] for desc in cur.description]
+    df = pd.DataFrame(rows, columns=cols)
+    cur.close()
+    conn.close()
+    return df
+
+
+def get_top_volume(trade_date):
+    conn = psycopg2.connect(**db_config)
+    cur = conn.cursor()
+    sql = """
+        SELECT symbol, company_name, close, volume
+        FROM usa_data
+        WHERE trade_date = %s
+        ORDER BY volume DESC
+        LIMIT 30;
+    """
+    cur.execute(sql, (trade_date,))
+    rows = cur.fetchall()
+    cols = [desc[0] for desc in cur.description]
+    df = pd.DataFrame(rows, columns=cols)
+    cur.close()
+    conn.close()
+    return df
+
+@router.message(Command("tgus"))
+async def cmd_tgus(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /tgus
+    logger.info(f"Perintah /tgus diterima dari user_id: {user_id}, argumen: {args}")
+    
+    try:
+        if len(args) == 1:
+            if args[0].isdigit():
+                # Mode: Hitung top gainers selama N hari
+                days = int(args[0])
+                if days <= 0:
+                    await message.answer("Jumlah hari harus lebih dari 0.")
+                    return
+                
+                conn = psycopg2.connect(**db_config)
+                try:
+                    cur = conn.cursor()
+                    # Dapatkan trade_date terbaru
+                    cur.execute("SELECT MAX(trade_date) FROM usa_data")
+                    max_date = cur.fetchone()[0]
+                    if not max_date:
+                        await message.answer("Tidak ada data di tabel usa_data.")
+                        return
+                    end_date = max_date.strftime('%Y-%m-%d')
+                    # Hitung start_date
+                    start_date = (max_date - timedelta(days=days)).strftime('%Y-%m-%d')
+                    
+                    # Query untuk top gainers multi-day
+                    sql = """
+                        WITH end_data AS (
+                            SELECT symbol, company_name, close, volume
+                            FROM usa_data
+                            WHERE trade_date = %s
+                        ),
+                        start_data AS (
+                            SELECT symbol, close
+                            FROM usa_data
+                            WHERE trade_date = (
+                                SELECT MAX(trade_date)
+                                FROM usa_data
+                                WHERE trade_date <= %s AND symbol = usa_data.symbol
+                            )
+                        )
+                        SELECT 
+                            e.symbol, 
+                            e.company_name, 
+                            e.close, 
+                            e.volume,
+                            s.close AS start_close,
+                            ROUND(100.0 * (e.close - s.close) / NULLIF(s.close, 0), 2) AS change_pct
+                        FROM end_data e
+                        JOIN start_data s ON e.symbol = s.symbol
+                        WHERE s.close IS NOT NULL AND s.close > 0
+                        ORDER BY change_pct DESC
+                        LIMIT 30;
+                    """
+                    cur.execute(sql, (end_date, start_date))
+                    rows = cur.fetchall()
+                    cols = [desc[0] for desc in cur.description]
+                    df = pd.DataFrame(rows, columns=cols)
+                    
+                    if df.empty:
+                        await message.answer(f"Tidak ada data Top Gainers USA selama {days} hari hingga {end_date}.")
+                    else:
+                        # Buat output teks dengan format rapi
+                        periode = f"{days} hari"
+                        response = f"📈 Top 30 Gainers USA ({periode}) hingga {end_date}:\n\n"
+                        response += "```\n"
+                        response += f"| {'Symbol':<6} | {'Company Name':<22} | {'Change (%)':>10} | {'Close':>9} | {'Volume':>12} |\n"
+                        response += f"|{'-'*6}-+{'-'*22}-+{'-'*10}-+{'-'*9}-+{'-'*12}|\n"
+                        table_data = []
+                        for _, r in df.iterrows():
+                            company_name = r.company_name[:20] + "..." if len(r.company_name) > 20 else r.company_name.ljust(20)
+                            change_pct = f"{r.change_pct:>6.2f}%"
+                            close = f"{r.close:>9.2f}"
+                            volume = f"{int(r.volume):>12,}" if pd.notna(r.volume) else "0".rjust(12)
+                            # Sesuaikan dengan create_table_image (7 elemen: symbol, company_name, change_pct, open, high, low, close)
+                            table_data.append((r.symbol, company_name, change_pct, None, None, None, r.close))
+                            response += f"| {r.symbol:<6} | {company_name:<22} | {change_pct:>10} | {close:>9} | {volume:>12} |\n"
+                        response += "```"
+                        
+                        # Kirim teks
+                        if len(response) > 4000:
+                            response_parts = []
+                            lines = response.split('\n')
+                            current_part = "```\n"
+                            for line in lines[2:]:
+                                if len(current_part) + len(line) + 1 > 4000:
+                                    response_parts.append(current_part + "```")
+                                    current_part = "```\n" + line + "\n"
+                                else:
+                                    current_part += line + "\n"
+                            if current_part.strip():
+                                response_parts.append(current_part + "```")
+                            for i, part in enumerate(response_parts, 1):
+                                await message.answer(part)
+                                logger.info(f"Bagian teks Top Gainers {i} dikirim")
+                        else:
+                            await message.answer(response)
+                        
+                        # Buat dan kirim gambar tabel
+                        title = f"Top 30 Gainers USA ({periode}) hingga {end_date}"
+                        image_files = create_table_image(table_data, title, is_gainer=True)
+                        for i, temp_file in enumerate(image_files, 1):
+                            if os.path.exists(temp_file):
+                                await message.answer_photo(FSInputFile(path=temp_file, filename=f"top_gainers_usa_part_{i}.png"))
+                                os.remove(temp_file)
+                                logger.info(f"Gambar {temp_file} dikirim dan dihapus")
+                            else:
+                                logger.error(f"File gambar {temp_file} tidak ditemukan")
+                                await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+                    
+                except Exception as e:
+                    logger.error(f"Error saat mengambil Top Gainers USA multi-day: {e}")
+                    await message.answer(f"Error: {e}")
+                finally:
+                    cur.close()
+                    conn.close()
+            
+            elif re.match(r'\d{4}-\d{2}-\d{2}', args[0]):
+                # Mode: Hitung top gainers untuk tanggal tertentu
+                try:
+                    input_date = datetime.strptime(args[0], '%Y-%m-%d').date()
+                    conn = psycopg2.connect(**db_config)
+                    try:
+                        cur = conn.cursor()
+                        # Periksa apakah data tersedia untuk tanggal tersebut
+                        cur.execute("SELECT COUNT(*) FROM usa_data WHERE trade_date = %s", (input_date,))
+                        if cur.fetchone()[0] == 0:
+                            await message.answer(f"Tidak ada data untuk tanggal {args[0]}.")
+                            return
+                        
+                        # Query untuk top gainers pada tanggal tertentu
+                        sql = """
+                            SELECT 
+                                symbol, 
+                                company_name, 
+                                close, 
+                                volume, 
+                                prev_close,
+                                ROUND(100.0 * (close - prev_close) / NULLIF(prev_close, 0), 2) AS change_pct
+                            FROM usa_data
+                            WHERE trade_date = %s AND prev_close IS NOT NULL AND prev_close > 0
+                            ORDER BY change_pct DESC
+                            LIMIT 30;
+                        """
+                        cur.execute(sql, (input_date,))
+                        rows = cur.fetchall()
+                        cols = [desc[0] for desc in cur.description]
+                        df = pd.DataFrame(rows, columns=cols)
+                        
+                        if df.empty:
+                            await message.answer(f"Tidak ada data Top Gainers USA untuk tanggal {args[0]}.")
+                        else:
+                            # Buat output teks dengan format rapi
+                            response = f"📈 Top 30 Gainers USA pada {args[0]}:\n\n"
+                            response += "```\n"
+                            response += f"| {'Symbol':<6} | {'Company Name':<22} | {'Change (%)':>10} | {'Close':>9} | {'Volume':>12} |\n"
+                            response += f"|{'-'*6}-+{'-'*22}-+{'-'*10}-+{'-'*9}-+{'-'*12}|\n"
+                            table_data = []
+                            for _, r in df.iterrows():
+                                company_name = r.company_name[:20] + "..." if len(r.company_name) > 20 else r.company_name.ljust(20)
+                                change_pct = f"{r.change_pct:>6.2f}%"
+                                close = f"{r.close:>9.2f}"
+                                volume = f"{int(r.volume):>12,}" if pd.notna(r.volume) else "0".rjust(12)
+                                # Sesuaikan dengan create_table_image (7 elemen)
+                                table_data.append((r.symbol, company_name, change_pct, None, None, None, r.close))
+                                response += f"| {r.symbol:<6} | {company_name:<22} | {change_pct:>10} | {close:>9} | {volume:>12} |\n"
+                            response += "```"
+                            
+                            # Kirim teks
+                            if len(response) > 4000:
+                                response_parts = []
+                                lines = response.split('\n')
+                                current_part = "```\n"
+                                for line in lines[2:]:
+                                    if len(current_part) + len(line) + 1 > 4000:
+                                        response_parts.append(current_part + "```")
+                                        current_part = "```\n" + line + "\n"
+                                    else:
+                                        current_part += line + "\n"
+                                if current_part.strip():
+                                    response_parts.append(current_part + "```")
+                                for i, part in enumerate(response_parts, 1):
+                                    await message.answer(part)
+                                    logger.info(f"Bagian teks Top Gainers {i} dikirim")
+                            else:
+                                await message.answer(response)
+                            
+                            # Buat dan kirim gambar tabel
+                            title = f"Top 30 Gainers USA pada {args[0]}"
+                            image_files = create_table_image(table_data, title, is_gainer=True)
+                            for i, temp_file in enumerate(image_files, 1):
+                                if os.path.exists(temp_file):
+                                    await message.answer_photo(FSInputFile(path=temp_file, filename=f"top_gainers_usa_part_{i}.png"))
+                                    os.remove(temp_file)
+                                    logger.info(f"Gambar {temp_file} dikirim dan dihapus")
+                                else:
+                                    logger.error(f"File gambar {temp_file} tidak ditemukan")
+                                    await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+                        
+                    except Exception as e:
+                        logger.error(f"Error saat mengambil Top Gainers USA untuk tanggal {args[0]}: {e}")
+                        await message.answer(f"Error: {e}")
+                    finally:
+                        cur.close()
+                        conn.close()
+                
+                except ValueError:
+                    await message.answer("Format tanggal tidak valid. Gunakan YYYY-MM-DD, misalnya /tgus 2020-03-01")
+            
+            else:
+                # Mode: Tampilkan grafik saham <symbol>
+                symbol = args[0].upper()
+                
+                conn = psycopg2.connect(**db_config)
+                try:
+                    cur = conn.cursor()
+                    # Ambil data historis (1 tahun terakhir atau 252 hari perdagangan)
+                    sql = """
+                        SELECT trade_date, close
+                        FROM usa_data
+                        WHERE symbol = %s
+                        ORDER BY trade_date ASC
+                        LIMIT 10000;
+                    """
+                    cur.execute(sql, (symbol,))
+                    rows = cur.fetchall()
+                    if not rows:
+                        await message.answer(f"Tidak ada data untuk saham {symbol}.")
+                        return
+                    
+                    df = pd.DataFrame(rows, columns=['Date', 'Close'])
+                    df['Date'] = pd.to_datetime(df['Date'])
+                    df['Close'] = df['Close'].astype(float)
+                    
+                    # Buat grafik
+                    plt.style.use('default')
+                    fig, ax = plt.subplots(figsize=(10, 5))
+                    ax.plot(df['Date'], df['Close'], label='Close Price', color='blue')
+                    ax.set_title(f"Grafik Harga Saham {symbol}")
+                    ax.set_xlabel('Tanggal')
+                    ax.set_ylabel('Harga Penutupan ($)')
+                    ax.legend(loc='upper left')
+                    ax.grid(True)
+                    ax.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
+                    plt.xticks(rotation=45)
+                    plt.tight_layout()
+                    
+                    # Simpan ke file sementara
+                    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
+                        temp_file_path = temp_file.name
+                        plt.savefig(temp_file_path, dpi=150, bbox_inches='tight')
+                        plt.close(fig)
+                    
+                    # Kirim grafik
+                    if os.path.exists(temp_file_path):
+                        await message.answer_photo(FSInputFile(path=temp_file_path, filename=f"chart_{symbol}.png"))
+                        os.remove(temp_file_path)
+                        logger.info(f"Grafik {temp_file_path} dikirim dan dihapus")
+                    else:
+                        logger.error(f"File grafik {temp_file_path} tidak ditemukan")
+                        await message.answer("Error: Gagal membuat grafik.")
+                    
+                except Exception as e:
+                    logger.error(f"Error saat membuat grafik untuk {symbol}: {e}")
+                    await message.answer(f"Error: {e}")
+                finally:
+                    cur.close()
+                    conn.close()
+        
+        else:
+            await message.answer("Gunakan /tgus <days> untuk top gainers selama <days> hari, /tgus <symbol> untuk grafik saham, atau /tgus <YYYY-MM-DD> untuk top gainers pada tanggal tertentu.\nContoh: /tgus 100, /tgus AAPL, atau /tgus 2020-03-01")
+    
+    except Exception as e:
+        logger.error(f"Error pada perintah /tgus: {e}")
+        await message.answer(f"Error: {e}")
+
+@router.message(Command("tlus"))
+async def cmd_tlus(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /tlus
+    logger.info(f"Perintah /tlus diterima dari user_id: {user_id}, argumen: {args}")
+    
+    try:
+        if len(args) == 1:
+            if args[0].isdigit():
+                # Mode: Hitung top losers selama N hari
+                days = int(args[0])
+                if days <= 0:
+                    await message.answer("Jumlah hari harus lebih dari 0.")
+                    return
+                
+                conn = psycopg2.connect(**db_config)
+                try:
+                    cur = conn.cursor()
+                    # Dapatkan trade_date terbaru
+                    cur.execute("SELECT MAX(trade_date) FROM usa_data")
+                    max_date = cur.fetchone()[0]
+                    if not max_date:
+                        await message.answer("Tidak ada data di tabel usa_data.")
+                        return
+                    end_date = max_date.strftime('%Y-%m-%d')
+                    # Hitung start_date
+                    start_date = (max_date - timedelta(days=days)).strftime('%Y-%m-%d')
+                    
+                    # Query untuk top losers multi-day
+                    sql = """
+                        WITH end_data AS (
+                            SELECT symbol, company_name, close, volume
+                            FROM usa_data
+                            WHERE trade_date = %s
+                        ),
+                        start_data AS (
+                            SELECT symbol, close
+                            FROM usa_data
+                            WHERE trade_date = (
+                                SELECT MAX(trade_date)
+                                FROM usa_data
+                                WHERE trade_date <= %s AND symbol = usa_data.symbol
+                            )
+                        )
+                        SELECT 
+                            e.symbol, 
+                            e.company_name, 
+                            e.close, 
+                            e.volume,
+                            s.close AS start_close,
+                            ROUND(100.0 * (e.close - s.close) / NULLIF(s.close, 0), 2) AS change_pct
+                        FROM end_data e
+                        JOIN start_data s ON e.symbol = s.symbol
+                        WHERE s.close IS NOT NULL AND s.close > 0
+                        ORDER BY change_pct ASC
+                        LIMIT 30;
+                    """
+                    cur.execute(sql, (end_date, start_date))
+                    rows = cur.fetchall()
+                    cols = [desc[0] for desc in cur.description]
+                    df = pd.DataFrame(rows, columns=cols)
+                    
+                    if df.empty:
+                        await message.answer(f"Tidak ada data Top Losers USA selama {days} hari hingga {end_date}.")
+                    else:
+                        # Buat output teks dengan format rapi
+                        periode = f"{days} hari"
+                        response = f"📉 Top 30 Losers USA ({periode}) hingga {end_date}:\n\n"
+                        response += "```\n"
+                        response += f"| {'Symbol':<6} | {'Company Name':<22} | {'Change (%)':>10} | {'Close':>9} | {'Volume':>12} |\n"
+                        response += f"|{'-'*6}-+{'-'*22}-+{'-'*10}-+{'-'*9}-+{'-'*12}|\n"
+                        table_data = []
+                        for _, r in df.iterrows():
+                            company_name = r.company_name[:20] + "..." if len(r.company_name) > 20 else r.company_name.ljust(20)
+                            change_pct = f"{r.change_pct:>6.2f}%"
+                            close = f"{r.close:>9.2f}"
+                            volume = f"{int(r.volume):>12,}" if pd.notna(r.volume) else "0".rjust(12)
+                            # Sesuaikan dengan create_table_image (7 elemen)
+                            table_data.append((r.symbol, company_name, change_pct, None, None, None, r.close))
+                            response += f"| {r.symbol:<6} | {company_name:<22} | {change_pct:>10} | {close:>9} | {volume:>12} |\n"
+                        response += "```"
+                        
+                        # Kirim teks
+                        if len(response) > 4000:
+                            response_parts = []
+                            lines = response.split('\n')
+                            current_part = "```\n"
+                            for line in lines[2:]:
+                                if len(current_part) + len(line) + 1 > 4000:
+                                    response_parts.append(current_part + "```")
+                                    current_part = "```\n" + line + "\n"
+                                else:
+                                    current_part += line + "\n"
+                            if current_part.strip():
+                                response_parts.append(current_part + "```")
+                            for i, part in enumerate(response_parts, 1):
+                                await message.answer(part)
+                                logger.info(f"Bagian teks Top Losers {i} dikirim")
+                        else:
+                            await message.answer(response)
+                        
+                        # Buat dan kirim gambar tabel
+                        title = f"Top 30 Losers USA ({periode}) hingga {end_date}"
+                        image_files = create_table_image(table_data, title, is_gainer=False)
+                        for i, temp_file in enumerate(image_files, 1):
+                            if os.path.exists(temp_file):
+                                await message.answer_photo(FSInputFile(path=temp_file, filename=f"top_losers_usa_part_{i}.png"))
+                                os.remove(temp_file)
+                                logger.info(f"Gambar {temp_file} dikirim dan dihapus")
+                            else:
+                                logger.error(f"File gambar {temp_file} tidak ditemukan")
+                                await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+                
+                except Exception as e:
+                    logger.error(f"Error saat mengambil Top Losers USA multi-day: {e}")
+                    await message.answer(f"Error: {e}")
+                finally:
+                    cur.close()
+                    conn.close()
+            
+            elif re.match(r'\d{4}-\d{2}-\d{2}', args[0]):
+                # Mode: Hitung top losers untuk tanggal tertentu
+                try:
+                    input_date = datetime.strptime(args[0], '%Y-%m-%d').date()
+                    conn = psycopg2.connect(**db_config)
+                    try:
+                        cur = conn.cursor()
+                        # Periksa apakah data tersedia untuk tanggal tersebut
+                        cur.execute("SELECT COUNT(*) FROM usa_data WHERE trade_date = %s", (input_date,))
+                        if cur.fetchone()[0] == 0:
+                            await message.answer(f"Tidak ada data untuk tanggal {args[0]}.")
+                            return
+                        
+                        # Query untuk top losers pada tanggal tertentu
+                        sql = """
+                            SELECT 
+                                symbol, 
+                                company_name, 
+                                close, 
+                                volume, 
+                                prev_close,
+                                ROUND(100.0 * (close - prev_close) / NULLIF(prev_close, 0), 2) AS change_pct
+                            FROM usa_data
+                            WHERE trade_date = %s AND prev_close IS NOT NULL AND prev_close > 0
+                            ORDER BY change_pct ASC
+                            LIMIT 30;
+                        """
+                        cur.execute(sql, (input_date,))
+                        rows = cur.fetchall()
+                        cols = [desc[0] for desc in cur.description]
+                        df = pd.DataFrame(rows, columns=cols)
+                        
+                        if df.empty:
+                            await message.answer(f"Tidak ada data Top Losers USA untuk tanggal {args[0]}.")
+                        else:
+                            # Buat output teks dengan format rapi
+                            response = f"📉 Top 30 Losers USA pada {args[0]}:\n\n"
+                            response += "```\n"
+                            response += f"| {'Symbol':<6} | {'Company Name':<22} | {'Change (%)':>10} | {'Close':>9} | {'Volume':>12} |\n"
+                            response += f"|{'-'*6}-+{'-'*22}-+{'-'*10}-+{'-'*9}-+{'-'*12}|\n"
+                            table_data = []
+                            for _, r in df.iterrows():
+                                company_name = r.company_name[:20] + "..." if len(r.company_name) > 20 else r.company_name.ljust(20)
+                                change_pct = f"{r.change_pct:>6.2f}%"
+                                close = f"{r.close:>9.2f}"
+                                volume = f"{int(r.volume):>12,}" if pd.notna(r.volume) else "0".rjust(12)
+                                # Sesuaikan dengan create_table_image (7 elemen)
+                                table_data.append((r.symbol, company_name, change_pct, None, None, None, r.close))
+                                response += f"| {r.symbol:<6} | {company_name:<22} | {change_pct:>10} | {close:>9} | {volume:>12} |\n"
+                            response += "```"
+                            
+                            # Kirim teks
+                            if len(response) > 4000:
+                                response_parts = []
+                                lines = response.split('\n')
+                                current_part = "```\n"
+                                for line in lines[2:]:
+                                    if len(current_part) + len(line) + 1 > 4000:
+                                        response_parts.append(current_part + "```")
+                                        current_part = "```\n" + line + "\n"
+                                    else:
+                                        current_part += line + "\n"
+                                if current_part.strip():
+                                    response_parts.append(current_part + "```")
+                                for i, part in enumerate(response_parts, 1):
+                                    await message.answer(part)
+                                    logger.info(f"Bagian teks Top Losers {i} dikirim")
+                            else:
+                                await message.answer(response)
+                            
+                            # Buat dan kirim gambar tabel
+                            title = f"Top 30 Losers USA pada {args[0]}"
+                            image_files = create_table_image(table_data, title, is_gainer=False)
+                            for i, temp_file in enumerate(image_files, 1):
+                                if os.path.exists(temp_file):
+                                    await message.answer_photo(FSInputFile(path=temp_file, filename=f"top_losers_usa_part_{i}.png"))
+                                    os.remove(temp_file)
+                                    logger.info(f"Gambar {temp_file} dikirim dan dihapus")
+                                else:
+                                    logger.error(f"File gambar {temp_file} tidak ditemukan")
+                                    await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+                        
+                    except Exception as e:
+                        logger.error(f"Error saat mengambil Top Losers USA untuk tanggal {args[0]}: {e}")
+                        await message.answer(f"Error: {e}")
+                    finally:
+                        cur.close()
+                        conn.close()
+                
+                except ValueError:
+                    await message.answer("Format tanggal tidak valid. Gunakan YYYY-MM-DD, misalnya /tlus 2020-03-01")
+        
+        else:
+            await message.answer("Gunakan /tlus <days> untuk top losers selama <days> hari, atau /tlus <YYYY-MM-DD> untuk top losers pada tanggal tertentu.\nContoh: /tlus 100 atau /tlus 2020-03-01")
+    
+    except Exception as e:
+        logger.error(f"Error pada perintah /tlus: {e}")
+        await message.answer(f"Error: {e}")
+        
+@router.message(Command("tvus"))
+async def cmd_tvus(message: Message) -> None:
+    trade_date = message.text.replace("/tvus", "").strip()
+    if not trade_date:
+        trade_date = date.today().isoformat()
+    df = get_top_volume(trade_date)
+    if df.empty:
+        await message.answer(f"Tidak ada data Top Volume USA untuk {trade_date}")
+    else:
+        msg = f"🔥 Top 10 Volume USA {trade_date}\n"
+        for _, r in df.iterrows():
+            msg += f"{r.symbol} ({r.company_name}): {r.volume:,} @ {r.close}\n"
+        await message.answer(msg)
+        
+@router.message(Command("tgid"))
+async def cmd_tgid(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /tgid
+    logger.info(f"Perintah /tgid diterima dari user_id: {user_id}, argumen: {args}")
+    
+    try:
+        if len(args) != 1:
+            await message.answer(
+                "Gunakan /tgid <days> untuk top gainers selama <days> hari, "
+                "/tgid <symbol> untuk grafik saham, atau /tgid <YYYY-MM-DD> "
+                "untuk top gainers pada tanggal tertentu.\n"
+                "Contoh: /tgid 100, /tgid BBCA, atau /tgid 2023-03-01"
+            )
+            return
+
+        if args[0].isdigit():
+            # Mode: Hitung top gainers selama N hari
+            days = int(args[0])
+            if days <= 0:
+                await message.answer("Jumlah hari harus lebih dari 0.")
+                return
+            
+            conn = psycopg2.connect(**db_config)
+            try:
+                cur = conn.cursor()
+                # Dapatkan trade_date terbaru
+                cur.execute("SELECT MAX(trade_date) FROM idx_data")
+                max_date = cur.fetchone()[0]
+                if not max_date:
+                    await message.answer("Tidak ada data di tabel idx_data.")
+                    return
+                end_date = max_date.strftime('%Y-%m-%d')
+                start_date = (max_date - timedelta(days=days)).strftime('%Y-%m-%d')
+                
+                # Query untuk top gainers multi-day
+                sql = """
+                    WITH end_data AS (
+                        SELECT symbol, company_name, close, volume
+                        FROM idx_data
+                        WHERE trade_date = %s
+                    ),
+                    start_data AS (
+                        SELECT symbol, close
+                        FROM idx_data
+                        WHERE trade_date = (
+                            SELECT MAX(trade_date)
+                            FROM idx_data
+                            WHERE trade_date <= %s AND symbol = idx_data.symbol
+                        )
+                    )
+                    SELECT 
+                        e.symbol, 
+                        e.company_name, 
+                        e.close, 
+                        e.volume,
+                        s.close AS start_close,
+                        ROUND(100.0 * (e.close - s.close) / NULLIF(s.close, 0), 2) AS change_pct
+                    FROM end_data e
+                    JOIN start_data s ON e.symbol = s.symbol
+                    WHERE s.close IS NOT NULL AND s.close > 0
+                    ORDER BY change_pct DESC
+                    LIMIT 30;
+                """
+                cur.execute(sql, (end_date, start_date))
+                rows = cur.fetchall()
+                if not rows:
+                    await message.answer(f"Tidak ada data Top Gainers IDX selama {days} hari hingga {end_date}.")
+                    return
+                cols = [desc[0] for desc in cur.description]
+                df = pd.DataFrame(rows, columns=cols)
+                
+                # Buat output teks dengan format rapi
+                periode = f"{days} hari"
+                response = f"📈 Top 30 Gainers IDX ({periode}) hingga {end_date}:\n\n"
+                response += "```\n"
+                response += f"| {'Symbol':<6} | {'Company Name':<22} | {'Change (%)':>10} | {'Close':>9} | {'Volume':>12} |\n"
+                response += f"|{'-'*6}-+{'-'*22}-+{'-'*10}-+{'-'*9}-+{'-'*12}|\n"
+                table_data = []
+                for _, r in df.iterrows():
+                    company_name = r.company_name[:20] + "..." if len(r.company_name) > 20 else r.company_name.ljust(20)
+                    change_pct = f"{r.change_pct:>6.2f}%"
+                    close = f"{r.close:>9.2f}"
+                    volume = f"{int(r.volume):>12,}" if pd.notna(r.volume) else "0".rjust(12)
+                    table_data.append((r.symbol, company_name, change_pct, None, None, None, r.close))
+                    response += f"| {r.symbol:<6} | {company_name:<22} | {change_pct:>10} | {close:>9} | {volume:>12} |\n"
+                response += "```"
+                
+                # Kirim teks
+                if len(response) > 4000:
+                    response_parts = []
+                    lines = response.split('\n')
+                    current_part = "```\n"
+                    for line in lines[2:]:
+                        if len(current_part) + len(line) + 1 > 4000:
+                            response_parts.append(current_part + "```")
+                            current_part = "```\n" + line + "\n"
+                        else:
+                            current_part += line + "\n"
+                    if current_part.strip():
+                        response_parts.append(current_part + "```")
+                    for i, part in enumerate(response_parts, 1):
+                        await message.answer(part)
+                        logger.info(f"Bagian teks Top Gainers {i} dikirim")
+                else:
+                    await message.answer(response)
+                
+                # Buat dan kirim gambar tabel
+                title = f"Top 30 Gainers IDX ({periode}) hingga {end_date}"
+                image_files = create_table_image(table_data, title, is_gainer=True)
+                for i, temp_file in enumerate(image_files, 1):
+                    if os.path.exists(temp_file):
+                        await message.answer_photo(FSInputFile(path=temp_file, filename=f"top_gainers_idx_part_{i}.png"))
+                        os.remove(temp_file)
+                        logger.info(f"Gambar {temp_file} dikirim dan dihapus")
+                    else:
+                        logger.error(f"File gambar {temp_file} tidak ditemukan")
+                        await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+            
+            except Exception as e:
+                logger.error(f"Error saat mengambil Top Gainers IDX multi-day: {e}")
+                await message.answer(f"Error: {e}")
+            finally:
+                cur.close()
+                conn.close()
+        
+        elif re.match(r'\d{4}-\d{2}-\d{2}', args[0]):
+            # Mode: Hitung top gainers untuk tanggal tertentu
+            try:
+                input_date = datetime.strptime(args[0], '%Y-%m-%d').date()
+                conn = psycopg2.connect(**db_config)
+                try:
+                    cur = conn.cursor()
+                    # Periksa apakah data tersedia untuk tanggal tersebut
+                    cur.execute("SELECT COUNT(*) FROM idx_data WHERE trade_date = %s", (input_date,))
+                    if cur.fetchone()[0] == 0:
+                        await message.answer(f"Tidak ada data untuk tanggal {args[0]}.")
+                        return
+                    
+                    # Query untuk top gainers pada tanggal tertentu
+                    sql = """
+                        SELECT 
+                            symbol, 
+                            company_name, 
+                            close, 
+                            volume, 
+                            prev_close,
+                            ROUND(100.0 * (close - prev_close) / NULLIF(prev_close, 0), 2) AS change_pct
+                        FROM idx_data
+                        WHERE trade_date = %s AND prev_close IS NOT NULL AND prev_close > 0
+                        ORDER BY change_pct DESC
+                        LIMIT 30;
+                    """
+                    cur.execute(sql, (input_date,))
+                    rows = cur.fetchall()
+                    if not rows:
+                        await message.answer(f"Tidak ada data Top Gainers IDX untuk tanggal {args[0]}.")
+                        return
+                    cols = [desc[0] for desc in cur.description]
+                    df = pd.DataFrame(rows, columns=cols)
+                    
+                    # Buat output teks dengan format rapi
+                    response = f"📈 Top 30 Gainers IDX pada {args[0]}:\n\n"
+                    response += "```\n"
+                    response += f"| {'Symbol':<6} | {'Company Name':<22} | {'Change (%)':>10} | {'Close':>9} | {'Volume':>12} |\n"
+                    response += f"|{'-'*6}-+{'-'*22}-+{'-'*10}-+{'-'*9}-+{'-'*12}|\n"
+                    table_data = []
+                    for _, r in df.iterrows():
+                        company_name = r.company_name[:20] + "..." if len(r.company_name) > 20 else r.company_name.ljust(20)
+                        change_pct = f"{r.change_pct:>6.2f}%"
+                        close = f"{r.close:>9.2f}"
+                        volume = f"{int(r.volume):>12,}" if pd.notna(r.volume) else "0".rjust(12)
+                        table_data.append((r.symbol, company_name, change_pct, None, None, None, r.close))
+                        response += f"| {r.symbol:<6} | {company_name:<22} | {change_pct:>10} | {close:>9} | {volume:>12} |\n"
+                    response += "```"
+                    
+                    # Kirim teks
+                    if len(response) > 4000:
+                        response_parts = []
+                        lines = response.split('\n')
+                        current_part = "```\n"
+                        for line in lines[2:]:
+                            if len(current_part) + len(line) + 1 > 4000:
+                                response_parts.append(current_part + "```")
+                                current_part = "```\n" + line + "\n"
+                            else:
+                                current_part += line + "\n"
+                        if current_part.strip():
+                            response_parts.append(current_part + "```")
+                        for i, part in enumerate(response_parts, 1):
+                            await message.answer(part)
+                            logger.info(f"Bagian teks Top Gainers {i} dikirim")
+                    else:
+                        await message.answer(response)
+                    
+                    # Buat dan kirim gambar tabel
+                    title = f"Top 30 Gainers IDX pada {args[0]}"
+                    image_files = create_table_image(table_data, title, is_gainer=True)
+                    for i, temp_file in enumerate(image_files, 1):
+                        if os.path.exists(temp_file):
+                            await message.answer_photo(FSInputFile(path=temp_file, filename=f"top_gainers_idx_part_{i}.png"))
+                            os.remove(temp_file)
+                            logger.info(f"Gambar {temp_file} dikirim dan dihapus")
+                        else:
+                            logger.error(f"File gambar {temp_file} tidak ditemukan")
+                            await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+                
+                except Exception as e:
+                    logger.error(f"Error saat mengambil Top Gainers IDX untuk tanggal {args[0]}: {e}")
+                    await message.answer(f"Error: {e}")
+                finally:
+                    cur.close()
+                    conn.close()
+            
+            except ValueError:
+                await message.answer("Format tanggal tidak valid. Gunakan YYYY-MM-DD, misalnya /tgid 2023-03-01")
+        
+        else:
+            # Mode: Tampilkan grafik saham <symbol>
+            symbol = args[0].upper().replace('.JK', '')  # Normalisasi simbol
+            conn = psycopg2.connect(**db_config)
+            try:
+                cur = conn.cursor()
+                # Ambil data historis (1 tahun terakhir atau 252 hari perdagangan)
+                sql = """
+                    SELECT trade_date, close
+                    FROM idx_data
+                    WHERE symbol = %s
+                    ORDER BY trade_date ASC
+                    LIMIT 10000;
+                """
+                cur.execute(sql, (symbol,))
+                rows = cur.fetchall()
+                if not rows:
+                    await message.answer(f"Tidak ada data untuk saham {symbol}.")
+                    return
+                
+                df = pd.DataFrame(rows, columns=['Date', 'Close'])
+                df['Date'] = pd.to_datetime(df['Date'])
+                df['Close'] = df['Close'].astype(float)
+                
+                if len(df) < 2:
+                    await message.answer(f"Data tidak cukup untuk membuat grafik saham {symbol}.")
+                    return
+                
+                # Buat grafik
+                plt.style.use('default')
+                fig, ax = plt.subplots(figsize=(10, 5))
+                ax.plot(df['Date'], df['Close'], label='Close Price', color='blue')
+                ax.set_title(f"Grafik Harga Saham {symbol} (IDX)")
+                ax.set_xlabel('Tanggal')
+                ax.set_ylabel('Harga Penutupan (IDR)')
+                ax.legend(loc='upper left')
+                ax.grid(True)
+                ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+                plt.xticks(rotation=45)
+                plt.tight_layout()
+                
+                # Simpan ke file sementara
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
+                    temp_file_path = temp_file.name
+                    plt.savefig(temp_file_path, dpi=150, bbox_inches='tight')
+                    plt.close(fig)
+                
+                # Kirim grafik
+                if os.path.exists(temp_file_path):
+                    await message.answer_photo(FSInputFile(path=temp_file_path, filename=f"chart_{symbol}.png"))
+                    os.remove(temp_file_path)
+                    logger.info(f"Grafik {temp_file_path} dikirim dan dihapus")
+                else:
+                    logger.error(f"File grafik {temp_file_path} tidak ditemukan")
+                    await message.answer("Error: Gagal membuat grafik.")
+                
+            except Exception as e:
+                logger.error(f"Error saat membuat grafik untuk {symbol}: {e}")
+                await message.answer(f"Error: {e}")
+            finally:
+                cur.close()
+                conn.close()
+    
+    except Exception as e:
+        logger.error(f"Error pada perintah /tgid: {e}")
+        await message.answer(f"Error: {e}")
+
+@router.message(Command("tlid"))
+async def cmd_tlid(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /tlid
+    logger.info(f"Perintah /tlid diterima dari user_id: {user_id}, argumen: {args}")
+    
+    try:
+        if len(args) == 1:
+            if args[0].isdigit():
+                # Mode: Hitung top losers selama N hari
+                days = int(args[0])
+                if days <= 0:
+                    await message.answer("Jumlah hari harus lebih dari 0.")
+                    return
+                
+                conn = psycopg2.connect(**db_config)
+                try:
+                    cur = conn.cursor()
+                    # Dapatkan trade_date terbaru
+                    cur.execute("SELECT MAX(trade_date) FROM idx_data")
+                    max_date = cur.fetchone()[0]
+                    if not max_date:
+                        await message.answer("Tidak ada data di tabel idx_data.")
+                        return
+                    end_date = max_date.strftime('%Y-%m-%d')
+                    # Hitung start_date
+                    start_date = (max_date - timedelta(days=days)).strftime('%Y-%m-%d')
+                    
+                    # Query untuk top losers multi-day
+                    sql = """
+                        WITH end_data AS (
+                            SELECT symbol, company_name, close, volume
+                            FROM idx_data
+                            WHERE trade_date = %s
+                        ),
+                        start_data AS (
+                            SELECT symbol, close
+                            FROM idx_data
+                            WHERE trade_date = (
+                                SELECT MAX(trade_date)
+                                FROM idx_data
+                                WHERE trade_date <= %s AND symbol = idx_data.symbol
+                            )
+                        )
+                        SELECT 
+                            e.symbol, 
+                            e.company_name, 
+                            e.close, 
+                            e.volume,
+                            s.close AS start_close,
+                            ROUND(100.0 * (e.close - s.close) / NULLIF(s.close, 0), 2) AS change_pct
+                        FROM end_data e
+                        JOIN start_data s ON e.symbol = s.symbol
+                        WHERE s.close IS NOT NULL AND s.close > 0
+                        ORDER BY change_pct ASC
+                        LIMIT 30;
+                    """
+                    cur.execute(sql, (end_date, start_date))
+                    rows = cur.fetchall()
+                    cols = [desc[0] for desc in cur.description]
+                    df = pd.DataFrame(rows, columns=cols)
+                    
+                    if df.empty:
+                        await message.answer(f"Tidak ada data Top Losers IDX selama {days} hari hingga {end_date}.")
+                    else:
+                        # Buat output teks dengan format rapi
+                        periode = f"{days} hari"
+                        response = f"📉 Top 30 Losers IDX ({periode}) hingga {end_date}:\n\n"
+                        response += "```\n"
+                        response += f"| {'Symbol':<6} | {'Company Name':<22} | {'Change (%)':>10} | {'Close':>9} | {'Volume':>12} |\n"
+                        response += f"|{'-'*6}-+{'-'*22}-+{'-'*10}-+{'-'*9}-+{'-'*12}|\n"
+                        table_data = []
+                        for _, r in df.iterrows():
+                            company_name = r.company_name[:20] + "..." if len(r.company_name) > 20 else r.company_name.ljust(20)
+                            change_pct = f"{r.change_pct:>6.2f}%"
+                            close = f"{r.close:>9.2f}"
+                            volume = f"{int(r.volume):>12,}" if pd.notna(r.volume) else "0".rjust(12)
+                            table_data.append((r.symbol, company_name, change_pct, None, None, None, r.close))
+                            response += f"| {r.symbol:<6} | {company_name:<22} | {change_pct:>10} | {close:>9} | {volume:>12} |\n"
+                        response += "```"
+                        
+                        # Kirim teks
+                        if len(response) > 4000:
+                            response_parts = []
+                            lines = response.split('\n')
+                            current_part = "```\n"
+                            for line in lines[2:]:
+                                if len(current_part) + len(line) + 1 > 4000:
+                                    response_parts.append(current_part + "```")
+                                    current_part = "```\n" + line + "\n"
+                                else:
+                                    current_part += line + "\n"
+                            if current_part.strip():
+                                response_parts.append(current_part + "```")
+                            for i, part in enumerate(response_parts, 1):
+                                await message.answer(part)
+                                logger.info(f"Bagian teks Top Losers {i} dikirim")
+                        else:
+                            await message.answer(response)
+                        
+                        # Buat dan kirim gambar tabel
+                        title = f"Top 30 Losers IDX ({periode}) hingga {end_date}"
+                        image_files = create_table_image(table_data, title, is_gainer=False)
+                        for i, temp_file in enumerate(image_files, 1):
+                            if os.path.exists(temp_file):
+                                await message.answer_photo(FSInputFile(path=temp_file, filename=f"top_losers_idx_part_{i}.png"))
+                                os.remove(temp_file)
+                                logger.info(f"Gambar {temp_file} dikirim dan dihapus")
+                            else:
+                                logger.error(f"File gambar {temp_file} tidak ditemukan")
+                                await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+                
+                except Exception as e:
+                    logger.error(f"Error saat mengambil Top Losers IDX multi-day: {e}")
+                    await message.answer(f"Error: {e}")
+                finally:
+                    cur.close()
+                    conn.close()
+            
+            elif re.match(r'\d{4}-\d{2}-\d{2}', args[0]):
+                # Mode: Hitung top losers untuk tanggal tertentu
+                try:
+                    input_date = datetime.strptime(args[0], '%Y-%m-%d').date()
+                    conn = psycopg2.connect(**db_config)
+                    try:
+                        cur = conn.cursor()
+                        # Periksa apakah data tersedia untuk tanggal tersebut
+                        cur.execute("SELECT COUNT(*) FROM idx_data WHERE trade_date = %s", (input_date,))
+                        if cur.fetchone()[0] == 0:
+                            await message.answer(f"Tidak ada data untuk tanggal {args[0]}.")
+                            return
+                        
+                        # Query untuk top losers pada tanggal tertentu
+                        sql = """
+                            SELECT 
+                                symbol, 
+                                company_name, 
+                                close, 
+                                volume, 
+                                prev_close,
+                                ROUND(100.0 * (close - prev_close) / NULLIF(prev_close, 0), 2) AS change_pct
+                            FROM idx_data
+                            WHERE trade_date = %s AND prev_close IS NOT NULL AND prev_close > 0
+                            ORDER BY change_pct ASC
+                            LIMIT 30;
+                        """
+                        cur.execute(sql, (input_date,))
+                        rows = cur.fetchall()
+                        cols = [desc[0] for desc in cur.description]
+                        df = pd.DataFrame(rows, columns=cols)
+                        
+                        if df.empty:
+                            await message.answer(f"Tidak ada data Top Losers IDX untuk tanggal {args[0]}.")
+                        else:
+                            # Buat output teks dengan format rapi
+                            response = f"📉 Top 30 Losers IDX pada {args[0]}:\n\n"
+                            response += "```\n"
+                            response += f"| {'Symbol':<6} | {'Company Name':<22} | {'Change (%)':>10} | {'Close':>9} | {'Volume':>12} |\n"
+                            response += f"|{'-'*6}-+{'-'*22}-+{'-'*10}-+{'-'*9}-+{'-'*12}|\n"
+                            table_data = []
+                            for _, r in df.iterrows():
+                                company_name = r.company_name[:20] + "..." if len(r.company_name) > 20 else r.company_name.ljust(20)
+                                change_pct = f"{r.change_pct:>6.2f}%"
+                                close = f"{r.close:>9.2f}"
+                                volume = f"{int(r.volume):>12,}" if pd.notna(r.volume) else "0".rjust(12)
+                                table_data.append((r.symbol, company_name, change_pct, None, None, None, r.close))
+                                response += f"| {r.symbol:<6} | {company_name:<22} | {change_pct:>10} | {close:>9} | {volume:>12} |\n"
+                            response += "```"
+                            
+                            # Kirim teks
+                            if len(response) > 4000:
+                                response_parts = []
+                                lines = response.split('\n')
+                                current_part = "```\n"
+                                for line in lines[2:]:
+                                    if len(current_part) + len(line) + 1 > 4000:
+                                        response_parts.append(current_part + "```")
+                                        current_part = "```\n" + line + "\n"
+                                    else:
+                                        current_part += line + "\n"
+                                if current_part.strip():
+                                    response_parts.append(current_part + "```")
+                                for i, part in enumerate(response_parts, 1):
+                                    await message.answer(part)
+                                    logger.info(f"Bagian teks Top Losers {i} dikirim")
+                            else:
+                                await message.answer(response)
+                            
+                            # Buat dan kirim gambar tabel
+                            title = f"Top 30 Losers IDX pada {args[0]}"
+                            image_files = create_table_image(table_data, title, is_gainer=False)
+                            for i, temp_file in enumerate(image_files, 1):
+                                if os.path.exists(temp_file):
+                                    await message.answer_photo(FSInputFile(path=temp_file, filename=f"top_losers_idx_part_{i}.png"))
+                                    os.remove(temp_file)
+                                    logger.info(f"Gambar {temp_file} dikirim dan dihapus")
+                                else:
+                                    logger.error(f"File gambar {temp_file} tidak ditemukan")
+                                    await message.answer(f"Error: File gambar bagian {i} tidak ditemukan")
+                        
+                    except Exception as e:
+                        logger.error(f"Error saat mengambil Top Losers IDX untuk tanggal {args[0]}: {e}")
+                        await message.answer(f"Error: {e}")
+                    finally:
+                        cur.close()
+                        conn.close()
+                
+                except ValueError:
+                    await message.answer("Format tanggal tidak valid. Gunakan YYYY-MM-DD, misalnya /tlid 2023-03-01")
+        
+        else:
+            await message.answer("Gunakan /tlid <days> untuk top losers selama <days> hari, atau /tlid <YYYY-MM-DD> untuk top losers pada tanggal tertentu.\nContoh: /tlid 100 atau /tlid 2023-03-01")
+    
+    except Exception as e:
+        logger.error(f"Error pada perintah /tlid: {e}")
+        await message.answer(f"Error: {e}")
+
+import mplfinance as mpf
+
+@router.message(Command("c"))
+async def cmd_chart(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /c
+    logger.info(f"Perintah /c diterima dari user_id: {user_id}, argumen: {args}")
+    
+    if len(args) < 2:
+        await message.answer("Gunakan /c <saham> <periode hari> [indikator1] [indikator2] ..., misalnya: /c bbca 50 fibo macd atau /c msft 100 stoch. Indikator opsional (maks 5): fibo, macd, stoch.")
+        return
+    
+    symbol = args[0].upper()
+    try:
+        period = int(args[1])
+        if period <= 0 or period > 1000:
+            raise ValueError("Periode harus antara 1 hingga 1000 hari.")
+    except ValueError:
+        await message.answer("Periode harus berupa angka positif antara 1 hingga 1000.")
+        return
+    
+    indicators = [arg.lower() for arg in args[2:]]
+    if len(indicators) > 5:
+        await message.answer("Maksimal 5 indikator.")
+        return
+    
+    valid_indicators = {'fibo', 'macd', 'stoch'}
+    unknown = [ind for ind in indicators if ind not in valid_indicators]
+    if unknown:
+        await message.answer(f"Indikator tidak dikenal: {', '.join(unknown)}. Indikator yang tersedia: fibo, macd, stoch.")
+        return
+    
+    if len(symbol) == 4 and symbol.isupper() and symbol.isalpha() and symbol not in ['MSFT', 'AAPL', 'GOOGL', 'GOOG', 'AMZN']:
+        table = 'idx_data'
+        currency = 'IDR'
+    else:
+        table = 'usa_data'
+        currency = 'USD'
+    
+    try:
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+        
+        # Ambil data termasuk high, low, dan volume dari database
+        query = sql.SQL("""
+            SELECT trade_date, open, high, low, close, volume
+            FROM {table}
+            WHERE symbol = %s AND open IS NOT NULL AND high IS NOT NULL AND low IS NOT NULL AND close IS NOT NULL AND volume IS NOT NULL
+            ORDER BY trade_date DESC
+            LIMIT %s;
+        """).format(table=sql.Identifier(table))
+        cur.execute(query, (symbol, period))
+        rows = cur.fetchall()
+        
+        if not rows:
+            await message.answer(f"Tidak ada data untuk saham {symbol} di tabel {table}.")
+            return
+        
+        df = pd.DataFrame(rows, columns=['Date', 'Open', 'High', 'Low', 'Close', 'Volume'])
+        logger.info(f"Data diambil untuk {symbol}: {df.head()}")  # Log untuk verifikasi
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = df.sort_values('Date')
+        
+        # Konversi ke numerik dengan menangani NaN
+        df[['Open', 'High', 'Low', 'Close', 'Volume']] = df[['Open', 'High', 'Low', 'Close', 'Volume']].apply(pd.to_numeric, errors='coerce')
+        
+        # Hapus baris dengan NaN
+        df = df.dropna()
+        
+        df.set_index('Date', inplace=True)
+        
+        if len(df) < 2:
+            await message.answer(f"Data tidak cukup untuk membuat grafik {symbol} setelah pembersihan.")
+            return
+        
+        # Verifikasi variasi high dan low
+        if df['High'].equals(df['Close']) and df['Low'].equals(df['Open']):
+            logger.warning(f"High sama dengan Close dan Low sama dengan Open untuk {symbol}")
+            await message.answer(f"Peringatan: Data {symbol} menunjukkan High = Close dan Low = Open, grafik mungkin tidak menunjukkan wick.")
+        
+        # Tentukan warna volume berdasarkan pergerakan harga harian (default oleh mplfinance)
+        mc = mpf.make_marketcolors(
+            up='green',
+            down='red',
+            volume='gray'  # Warna default volume (akan diatur otomatis oleh mplfinance)
+        )
+        s = mpf.make_mpf_style(marketcolors=mc)
+        
+        addplots = []  # List untuk menambahkan indikator
+        panel_counter = 2  # Panel 0: main, Panel 1: volume, mulai dari 2 untuk indikator
+        
+        fibo_levels = None
+        if indicators:
+            for indicator in indicators:
+                if indicator == 'macd':
+                    # Hitung MACD
+                    exp1 = df['Close'].ewm(span=12, adjust=False).mean()
+                    exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+                    macd = exp1 - exp2
+                    signal = macd.ewm(span=9, adjust=False).mean()
+                    histogram = macd - signal
+                    addplots.append(mpf.make_addplot(histogram, type='bar', width=0.7, panel=panel_counter, color='dimgray', alpha=0.65, secondary_y=False, ylabel='MACD'))
+                    addplots.append(mpf.make_addplot(macd, panel=panel_counter, color='blue', secondary_y=False))
+                    addplots.append(mpf.make_addplot(signal, panel=panel_counter, color='orange', secondary_y=False))
+                    panel_counter += 1
+                
+                elif indicator == 'stoch':
+                    # Hitung Stochastic Oscillator
+                    low_min = df['Low'].rolling(window=14).min()
+                    high_max = df['High'].rolling(window=14).max()
+                    k = 100 * ((df['Close'] - low_min) / (high_max - low_min))
+                    d = k.rolling(window=3).mean()
+                    addplots.append(mpf.make_addplot(k, panel=panel_counter, color='blue', ylabel='Stoch %K'))
+                    addplots.append(mpf.make_addplot(d, panel=panel_counter, color='orange', ylabel='Stoch %D'))
+                    addplots.append(mpf.make_addplot([80] * len(df), panel=panel_counter, color='red', linestyle='--'))
+                    addplots.append(mpf.make_addplot([20] * len(df), panel=panel_counter, color='red', linestyle='--'))
+                    panel_counter += 1
+                
+                elif indicator == 'fibo':
+                    # Tentukan tren
+                    first_close = df['Close'].iloc[0]
+                    last_close = df['Close'].iloc[-1]
+                    if last_close > first_close:  # Tren naik: dari min low ke max high
+                        start = df['Low'].min()
+                        end = df['High'].max()
+                    else:  # Tren turun: dari max high ke min low
+                        start = df['High'].max()
+                        end = df['Low'].min()
+                    
+                    diff = abs(end - start)
+                    
+                    # Level Fibonacci Retracement
+                    fibo_levels = {
+                        '0%': start,
+                        '23.6%': start + (0.236 * diff) if last_close > first_close else start - (0.236 * diff),
+                        '38.2%': start + (0.382 * diff) if last_close > first_close else start - (0.382 * diff),
+                        '50%': start + (0.5 * diff) if last_close > first_close else start - (0.5 * diff),
+                        '61.8%': start + (0.618 * diff) if last_close > first_close else start - (0.618 * diff),
+                        '100%': end
+                    }
+                    
+                    # Tambahkan garis level
+                    colors = ['black', 'blue', 'green', 'orange', 'red', 'black']
+                    for i, (label, level) in enumerate(fibo_levels.items()):
+                        addplots.append(mpf.make_addplot([level] * len(df), color=colors[i], linestyle='--'))
+        
+        num_additional_panels = panel_counter - 2
+        fig_height = 6 + 2 * num_additional_panels if indicators else 6
+        
+        # Buat candlestick chart dengan volume dan indikator tambahan
+        fig, axes = mpf.plot(
+            df,
+            type='candle',
+            style=s,
+            title=f"Grafik OHLC Saham {symbol} ({period} Hari Terakhir) {' '.join(ind.upper() for ind in indicators) if indicators else ''}",
+            ylabel=f'Harga ({currency})',
+            volume=True,
+            figsize=(12, fig_height),  # Sesuaikan tinggi berdasarkan jumlah panel
+            scale_padding={'top': 0.1, 'bottom': 0.1},
+            addplot=addplots if addplots else None,
+            returnfig=True,
+            panel_ratios=(4,1) + (1,) * num_additional_panels if num_additional_panels > 0 else None
+        )
+        
+        # Jika fibo ada, tambahkan label secara manual
+        if 'fibo' in indicators and fibo_levels:
+            ax = axes[0]  # Panel utama (candlestick)
+            fig.subplots_adjust(right=0.85)  # Beri ruang di kanan untuk label
+            x_pos = len(df) * 1.005  # Sedikit di luar batas kanan chart
+            colors = ['black', 'blue', 'green', 'orange', 'red', 'black']
+            for i, (label, level) in enumerate(fibo_levels.items()):
+                ax.text(x_pos, level, f"{label} ({level:.2f})", va='center', ha='left', color=colors[i], fontsize=8)
+        
+        # Simpan grafik sementara
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
+            temp_file_path = temp_file.name
+            fig.savefig(temp_file_path, dpi=150, bbox_inches='tight')
+            plt.close(fig)
+        
+        # Kirim ke Telegram
+        if os.path.exists(temp_file_path):
+            await message.answer_photo(FSInputFile(temp_file_path, filename=f"chart_{symbol}_{period}d.png"))
+            os.remove(temp_file_path)
+            logger.info(f"Grafik saham {symbol} dengan volume dikirim")
+        else:
+            await message.answer("Error: Gagal membuat grafik.")
+    
+    except psycopg2.Error as db_error:
+        logger.exception("Error database saat query candlestick")
+        await message.answer(f"Error database: {db_error}")
+    except Exception as e:
+        logger.exception("Error saat membuat grafik candlestick")
+        await message.answer(f"Error: {e}")
+    finally:
+        try:
+            cur.close()
+            conn.close()
+        except:
+            pass
+
+@router.message(Command("bt"))
+async def cmd_backtest(message: Message) -> None:
+    user_id = message.from_user.id
+    args = message.text.split()[1:]  # Ambil argumen setelah /bt
+    logger.info(f"Perintah /bt diterima dari user_id: {user_id}, argumen: {args}")
+    
+    period = 100
+    if args:
+        try:
+            period = int(args[0])
+            if period <= 0 or period > 2000:
+                raise ValueError("Periode harus antara 1 hingga 1000 hari.")
+        except ValueError:
+            await message.answer("Periode harus berupa angka positif antara 1 hingga 1000. Gunakan /bt [periode], default 100.")
+            return
+    
+    try:
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+        
+        # Query untuk mendapatkan saham paling aktif berdasarkan volatilitas dan volume
+        query = """
+            SELECT 
+                symbol,
+                AVG(volume) as avg_volume,
+                STDDEV((close - prev_close) / prev_close) * 100 as volatility,
+                COUNT(*) as days,
+                SUM(CASE WHEN close != prev_close THEN 1 ELSE 0 END) as moving_days
+            FROM idx_data
+            WHERE trade_date >= (SELECT MAX(trade_date) - INTERVAL '%s days' FROM idx_data)
+            GROUP BY symbol
+            HAVING COUNT(*) >= %s / 2  -- Filter saham dengan data cukup
+            ORDER BY volatility DESC, avg_volume DESC
+            LIMIT 40;
+        """
+        cur.execute(query, (period - 1, period))
+        rows = cur.fetchall()
+        
+        if not rows:
+            await message.answer(f"Tidak ada data saham untuk periode {period} hari.")
+            return
+        
+        # Buat tabel Markdown
+        response = f"**Saham Paling Aktif (Backtest {period} Hari Terakhir)**\n\n"
+        response += "| Symbol | Volatilitas (%) | Rata-rata Volume | Hari Bergerak | Total Hari |\n"
+        response += "|--------|-----------------|------------------|---------------|------------|\n"
+        
+        for row in rows:
+            symbol, avg_volume, volatility, days, moving_days = row
+            volatility = round(volatility, 2) if volatility else 0
+            avg_volume = round(avg_volume, 0) if avg_volume else 0
+            response += f"| {symbol} | {volatility} | {avg_volume} | {moving_days} | {days} |\n"
+        
+        response += "\nVolatilitas dihitung sebagai standar deviasi dari return harian (%). Saham diurutkan berdasarkan volatilitas tertinggi dan volume rata-rata."
+        
+        await message.answer(response, parse_mode="Markdown")
+        logger.info(f"Hasil backtest dikirim untuk periode {period} hari")
+    
+    except psycopg2.Error as db_error:
+        logger.exception("Error database saat backtest")
+        await message.answer(f"Error database: {db_error}")
+    except Exception as e:
+        logger.exception("Error saat melakukan backtest")
+        await message.answer(f"Error: {e}")
+    finally:
+        try:
+            cur.close()
+            conn.close()
+        except:
+            pass       
+
+
+# Konfigurasi logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Konfigurasi API
+OPENROUTER_API_KEY = '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'
+OPENROUTER_API_URL = 'https://openrouter.ai/api/v1'
+OPENROUTER_FALLBACK_URL = 'https://104.18.2.115/api/v1'  # IP dari nslookup
+HF_API_URL = 'https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-1B-Instruct'
+HF_API_KEY = 'YOUR_HUGGINGFACE_API_KEY'  # Ganti dengan API key Hugging Face
+
+# Inisialisasi OpenAI client
+openrouter_client = OpenAI(
+    base_url=OPENROUTER_API_URL,
+    api_key=OPENROUTER_API_KEY,
+)
+
+# Definisikan state untuk chat
+class ChatState(StatesGroup):
+    chatting = State()
+
+# Router untuk handler
+router = Router()
+
+async def clean_markdown(text: str) -> str:
+    """
+    Membersihkan teks dari Markdown yang berpotensi menyebabkan error parsing di Telegram.
+    """
+    # Ganti backtick ganda/tiga dengan spasi
+    text = re.sub(r'`{2,}', '`', text)
+    # Pastikan backtick seimbang
+    text = re.sub(r'`([^`]*)`', r'`\1`', text)
+    # Ganti karakter khusus yang bermasalah
+    text = text.replace('\r', '').replace('\t', ' ')
+    # Hapus Markdown yang tidak ditutup
+    text = re.sub(r'(\*|_)([^\*_]*)$', r'\2', text)
+    return text
+
+async def send_long_message(message: Message, text: str, max_length: int = 4000, parse_mode: str = "Markdown") -> None:
+    """
+    Mengirim pesan panjang dengan memecahnya menjadi beberapa bagian agar sesuai batas Telegram (4096 karakter).
+    Membersihkan Markdown untuk mencegah error parsing.
+    """
+    try:
+        # Bersihkan Markdown
+        text = clean_markdown(text)
+        
+        if len(text) <= max_length:
+            await message.answer(text, parse_mode=parse_mode)
+            return
+        
+        # Pecah teks dengan memastikan entitas Markdown tidak terpotong
+        parts = []
+        current_part = ""
+        lines = text.split("\n")
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            # Cek apakah menambahkan baris akan melebihi max_length
+            if len(current_part) + len(line) + 1 <= max_length:
+                current_part += line + "\n"
+                i += 1
+            else:
+                # Jika baris terlalu panjang, potong secara aman
+                if len(line) > max_length:
+                    # Potong baris panjang ke dalam beberapa bagian
+                    while len(line) > max_length:
+                        safe_cut = line[:max_length].rfind(' ')
+                        if safe_cut == -1:
+                            safe_cut = max_length
+                        parts.append(clean_markdown(line[:safe_cut].strip()))
+                        line = line[safe_cut:].strip()
+                    current_part = line + "\n"
+                    i += 1
+                else:
+                    parts.append(clean_markdown(current_part.strip()))
+                    current_part = line + "\n"
+                    i += 1
+        if current_part:
+            parts.append(clean_markdown(current_part.strip()))
+        
+        # Kirim setiap bagian
+        for part_num, part in enumerate(parts, 1):
+            if part:
+                try:
+                    await message.answer(part, parse_mode=parse_mode)
+                    logger.info(f"Mengirim bagian {part_num}/{len(parts)} untuk chat_id {message.chat.id}")
+                    await asyncio.sleep(0.5)  # Jeda untuk hindari rate limit
+                except Exception as e:
+                    logger.warning(f"Gagal mengirim bagian {part_num}: {e}. Mencoba tanpa parse_mode.")
+                    await message.answer(part, parse_mode=None)
+                    await asyncio.sleep(0.5)
+    except Exception as e:
+        logger.error(f"Gagal mengirim pesan panjang: {e}", exc_info=True)
+        await message.answer("Gagal mengirim respons lengkap karena masalah teknis. Coba lagi nanti.", parse_mode=None)
+
+@router.message(Command("analisa"))
+async def cmd_chat(message: Message, state: FSMContext = None) -> None:
+    """
+    Handler untuk perintah /chat. Mengambil data saham teknikal dari saham_data, fundamental dari fundamental_data,
+    dan sentimen berita terbaru dari internet. Menggunakan analisis mendalam dan send_long_message untuk output.
+    """
+    user_id = message.from_user.id
+    args = message.text.split()[1:]
+    logger.info(f"Perintah /chat diterima dari user_id: {user_id}, argumen: {args}")
+    
+    # Validasi input
+    if len(args) < 2:
+        await message.answer(
+            "Gunakan `/chat <kode_saham> <market> <pertanyaan>`, misalnya: `/chat BBCA idx prediksi harga besok`.\nMarket: idx atau us.",
+            parse_mode="Markdown"
+        )
+        return
+    
+    kode_saham = args[0].upper()
+    market = args[1].lower()
+    if not re.match(r'^[A-Z]{4}$', kode_saham) or market not in ['idx', 'us']:
+        await message.answer(
+            "Kode saham harus 4 huruf kapital (misalnya: `BBCA`), dan market harus `idx` atau `us`.",
+            parse_mode="Markdown"
+        )
+        return
+    
+    query_user = ' '.join(args[2:]) if len(args) > 2 else "Prediksi tren saham"
+    
+    try:
+        # Koneksi ke database
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+        
+        # Query data teknikal
+        logger.info(f"Executing teknikal query for kode_saham: {kode_saham}")
+        query_teknikal = """
+            SELECT "Tanggal Perdagangan Terakhir", "Penutupan", "Volume", "Tertinggi", "Terendah"
+            FROM saham_data
+            WHERE "Kode Saham" = %s
+            ORDER BY "Tanggal Perdagangan Terakhir" DESC
+            LIMIT 90;
+        """
+        cur.execute(query_teknikal, (kode_saham,))
+        results_teknikal = cur.fetchall()
+        
+        if not results_teknikal:
+            await message.answer(
+                f"Tidak ada data teknikal historis untuk saham `{kode_saham}`.",
+                parse_mode="Markdown"
+            )
+            cur.close()
+            conn.close()
+            return
+        
+        # Format data teknikal
+        data_teknikal = "\n".join([f"{row[0]}: Close={row[1]}, Vol={row[2]}, High={row[3]}, Low={row[4]}" for row in results_teknikal])
+        
+        # Query data fundamental
+        logger.info(f"Executing fundamental query for kode_saham: {kode_saham}, market: {market}")
+        query_fundamental = """
+            SELECT report_date, eps, per, pbv, roe, dividend_yield
+            FROM fundamental_data
+            WHERE symbol = %s AND market = %s
+            ORDER BY report_date DESC
+            LIMIT 5;
+        """
+        cur.execute(query_fundamental, (kode_saham, market))
+        results_fundamental = cur.fetchall()
+        
+        # Format data fundamental
+        data_fundamental = "\n".join([
+            f"{row[0]}: EPS={row[1]}, PER={row[2]}, PBV={row[3]}, ROE={row[4]}, Dividend Yield={row[5]}"
+            for row in results_fundamental
+        ]) if results_fundamental else "Tidak ada data fundamental tersedia."
+        
+        # Fetch berita terbaru
+        logger.info(f"Mencari berita terbaru untuk saham {kode_saham}")
+        berita_summary = ""
+        try:
+            url = f"https://www.cnbcindonesia.com/search?query={kode_saham}+saham"
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124'}
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            articles = soup.find_all('article', limit=5)
+            berita_list = []
+            for article in articles:
+                title = article.find('h2').text.strip() if article.find('h2') else "No title"
+                date = article.find('time').text.strip() if article.find('time') else "No date"
+                summary = article.find('p').text.strip() if article.find('p') else "No summary"
+                berita_list.append(f"{date}: {title} - {summary}")
+            
+            berita_summary = "\n".join(berita_list) if berita_list else "Tidak ada berita terbaru ditemukan."
+        except Exception as e:
+            logger.warning(f"Gagal fetch berita: {e}")
+            berita_summary = "Gagal mengambil berita terbaru karena masalah koneksi. Analisis tanpa sentimen berita."
+        
+        # Prompt untuk API dengan analisis mendalam
+        prompt = f"""
+        Anda adalah analis saham AI profesional. Lakukan analisis mendalam untuk saham {kode_saham} ({market.upper()}) dari sisi teknikal, fundamental, dan sentimen berita terbaru.
+        
+        **Data teknikal historis (90 hari terakhir)**:
+        {data_teknikal}
+        
+        **Data fundamental (5 laporan terakhir)**:
+        {data_fundamental}
+        
+        **Berita dan sentimen terbaru**:
+        {berita_summary}
+        
+        **Pertanyaan pengguna**: {query_user}
+        
+        Berikan analisis mendalam:
+        - **Teknikal**: Analisis tren harga, volatilitas, level support/resistance, dan indikator teknikal (misalnya Moving Average, RSI jika memungkinkan).
+        - **Fundamental**: Evaluasi valuasi (PER, PBV), profitabilitas (EPS, ROE), dividen (Dividend Yield), bandingkan dengan tren historis dan industri.
+        - **Sentimen Berita**: Ringkas sentimen dari berita terbaru (positif/negatif/netral), dan dampak potensial ke harga saham.
+        - **Rekomendasi Keseluruhan**: Beli/Jual/Tahan, dengan alasan terperinci dari ketiga aspek. Sertakan potensi risiko.
+        
+        Gunakan format Markdown dengan heading (`##`, `###`), bullet points, dan teks bold untuk kejelasan. Pastikan Markdown valid dan hindari karakter yang dapat menyebabkan error parsing.
+        """
+        
+        # Coba OpenRouter API
+        logger.info(f"Mengirim request ke OpenRouter API untuk {kode_saham}")
+        try:
+            completion = openrouter_client.chat.completions.create(
+                model="deepseek/deepseek-chat-v3.1:free",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1000,
+                temperature=0.7,
+                extra_headers={
+                    "HTTP-Referer": "https://your-site-url",
+                    "X-Title": "Stock Prediction Bot"
+                }
+            )
+            ai_response = completion.choices[0].message.content
+            logger.info(f"OpenRouter Response untuk {kode_saham}: {ai_response[:100]}...")
+            await send_long_message(message, f"**Analisis Mendalam AI untuk {kode_saham} ({market.upper()})**:\n\n{ai_response}")
+        
+        except Exception as oe:
+            logger.warning(f"Gagal menggunakan OpenRouter: {oe}")
+            logger.info("Mencoba fallback ke IP OpenRouter")
+            fallback_client = OpenAI(
+                base_url=OPENROUTER_FALLBACK_URL,
+                api_key=OPENROUTER_API_KEY,
+                http_client=requests.Session()
+            )
+            headers = {"Host": "openrouter.ai"}
+            completion = fallback_client.chat.completions.create(
+                model="deepseek/deepseek-chat-v3.1:free",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1000,
+                temperature=0.7,
+                extra_headers=headers
+            )
+            ai_response = completion.choices[0].message.content
+            logger.info(f"OpenRouter Fallback Response untuk {kode_saham}: {ai_response[:100]}...")
+            await send_long_message(message, f"**Analisis Mendalam AI untuk {kode_saham} ({market.upper()})**:\n\n{ai_response}")
+        
+        except Exception as oe:
+            logger.warning(f"Gagal menggunakan OpenRouter fallback: {oe}")
+            logger.info("Mencoba Hugging Face API")
+            headers_hf = {
+                'Authorization': f'Bearer {HF_API_KEY}',
+                'Content-Type': 'application/json'
+            }
+            payload_hf = {
+                'inputs': prompt,
+                'parameters': {'max_length': 1000, 'temperature': 0.7}
+            }
+            response_hf = requests.post(HF_API_URL, headers=headers_hf, json=payload_hf, timeout=10)
+            response_hf.raise_for_status()
+            ai_response = response_hf.json()[0]['generated_text']
+            logger.info(f"Hugging Face Response untuk {kode_saham}: {ai_response[:100]}...")
+            await send_long_message(message, f"**Analisis Mendalam AI untuk {kode_saham} ({market.upper()}) (via Hugging Face)**:\n\n{ai_response}")
+        
+    except requests.exceptions.ConnectionError as ce:
+        logger.error(f"Error koneksi ke API: {ce}")
+        await message.answer(
+            "Gagal menghubungi API: Masalah koneksi jaringan atau DNS. Cek koneksi Anda.",
+            parse_mode="Markdown"
+        )
+    except requests.exceptions.Timeout:
+        logger.error("Request ke API timeout")
+        await message.answer(
+            "Gagal menghubungi API: Waktu permintaan habis. Coba lagi nanti.",
+            parse_mode="Markdown"
+        )
+    except requests.exceptions.RequestException as re_err:
+        logger.error(f"Error jaringan ke API: {re_err}")
+        await message.answer(
+            "Gagal menghubungi API. Cek koneksi jaringan.",
+            parse_mode="Markdown"
+        )
+    except psycopg2.Error as db_err:
+        logger.error(f"Database error: {db_err}")
+        await message.answer(
+            "Gagal mengakses data saham. Hubungi admin.",
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        logger.error(f"Error di /chat: {e}", exc_info=True)
+        await message.answer(
+            f"Terjadi kesalahan: {e}.",
+            parse_mode="Markdown"
+        )
+    finally:
+        if 'cur' in locals():
+            cur.close()
+        if 'conn' in locals():
+            conn.close()
+
+@router.message(ChatState.chatting)
+async def handle_chat(message: Message, state: FSMContext) -> None:
+    await message.answer(
+        "Fitur chat lanjutan belum diimplementasikan. Gunakan `/chat` untuk memulai ulang.",
+        parse_mode="Markdown"
+    )
+
+from aiogram.types import InputFile
+import io
+
+@router.message(Command("teknikal"))
+async def cmd_teknikal(message: Message):
+    args = message.text.split()[1:]
+    if len(args) < 2:
+        await message.answer("Gunakan: /teknikal <kode_saham> <market: idx/us>")
+        return
+
+    kode_saham, market = args[0].upper(), args[1].lower()
+    table = "idx_data" if market == "idx" else "usa_data"
+
+    try:
+        # --- Ambil data historis ---
+        query = f"""
+            SELECT trade_date, close, high, low, volume
+            FROM {table}
+            WHERE symbol = %s
+            ORDER BY trade_date DESC
+            LIMIT 150;
+        """
+        df = pd.read_sql(query, engine, params=(kode_saham,))
+        if df.empty:
+            await message.answer(f"Tidak ada data teknikal untuk {kode_saham} di {market.upper()}")
+            return
+
+        df = df.sort_values("trade_date")  # urutkan ascending
+
+        # --- Hitung indikator teknikal ---
+        df["MA20"] = df["close"].rolling(window=20).mean()
+        df["MA50"] = df["close"].rolling(window=50).mean()
+
+        # RSI 14
+        delta = df["close"].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+        rs = gain / loss
+        df["RSI"] = 100 - (100 / (1 + rs))
+
+        # --- Plot harga + MA ---
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
+        
+        ax1.plot(df["trade_date"], df["close"], label="Close", color="blue")
+        ax1.plot(df["trade_date"], df["MA20"], label="MA20", color="orange", linestyle="--")
+        ax1.plot(df["trade_date"], df["MA50"], label="MA50", color="green", linestyle="--")
+        ax1.set_title(f"Teknikal {kode_saham} ({market.upper()})")
+        ax1.legend()
+        ax1.grid(True)
+
+        # --- Plot RSI ---
+        ax2.plot(df["trade_date"], df["RSI"], label="RSI(14)", color="red")
+        ax2.axhline(70, color="gray", linestyle="--", linewidth=1)
+        ax2.axhline(30, color="gray", linestyle="--", linewidth=1)
+        ax2.set_title("RSI(14)")
+        ax2.legend()
+        ax2.grid(True)
+
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+
+        # --- Simpan ke buffer ---
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png")
+        buf.seek(0)
+        plt.close(fig)
+
+        # --- Kirim ke Telegram ---
+        image_file = BufferedInputFile(buf.getvalue(), filename="teknikal.png")
+        await message.answer_photo(image_file, caption=f"📊 Analisa teknikal {kode_saham} ({market.upper()})")
+
+    except Exception as e:
+        await message.answer(f"Terjadi kesalahan saat analisa teknikal: {e}")
+
+@router.message(Command("fundamental"))
+async def cmd_fundamental(message: Message):
+    args = message.text.split()[1:]
+    if len(args) < 2:
+        await message.answer("Gunakan: /fundamental <kode_saham> <market: idx/us>")
+        return
+    
+    kode_saham, market = args[0].upper(), args[1].lower()
+    table = "fundamental_data"  # sudah satu tabel
+
+    try:
+        # --- Query pakai engine ---
+        query = f"""
+            SELECT report_date, eps, per, pbv, roe, dividend_yield
+            FROM {table}
+            WHERE (symbol = %s OR symbol = %s) AND market = %s
+            ORDER BY report_date DESC
+            LIMIT 4;
+        """
+        df = pd.read_sql(query, engine, params=(kode_saham, f"{kode_saham}.JK", market))
+
+        if df.empty:
+            await message.answer(f"Tidak ada data fundamental untuk {kode_saham} di {market.upper()}")
+            return
+
+        summary_lines = [
+            f"{row['report_date']}: EPS={row['eps']}, PER={row['per']}, PBV={row['pbv']}, ROE={row['roe']}%, DY={row['dividend_yield']}%"
+            for _, row in df.iterrows()
+        ]
+        summary = "\n".join(summary_lines)
+
+        await message.answer(f"📑 Data fundamental {kode_saham} ({market.upper()}):\n\n{summary}")
+
+        # AI interpretasi
+        prompt = f"""
+        Lakukan analisa fundamental untuk saham {kode_saham} di pasar {market.upper()}.
+
+        Data historis fundamental:
+        {summary}
+
+        Analisa yang dibutuhkan:
+        - Apakah valuasi mahal/murah (PER, PBV)?
+        - Profitabilitas (EPS, ROE)?
+        - Dividen menarik atau tidak?
+        - Rekomendasi (buy/hold/sell)?
+        """
+        completion = openrouter_client.chat.completions.create(
+            model="deepseek/deepseek-chat-v3.1:free",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=400,
+            temperature=0.7
+        )
+        ai_response = completion.choices[0].message.content
+        await message.answer(f"🤖 Analisa Fundamental AI untuk {kode_saham} ({market.upper()}):\n\n{ai_response}")
+
+    except Exception as e:
+        logger.error(f"Error di /fundamental: {e}")
+        await message.answer(f"Terjadi kesalahan saat analisa fundamental: {e}")
+
+# --- helper ambil data fundamental dari DB ---
+def get_fundamental_history(symbol: str, market: str):
+    table = "fundamental_data"  # semua data disimpan di sini
+    query = f"""
+        SELECT report_date, eps, per, pbv, roe, dividend_yield
+        FROM {table}
+        WHERE symbol = %s AND market = %s
+        ORDER BY report_date ASC;
+    """
+    df = pd.read_sql(query, engine, params=(symbol, market))
+    return df
+
+# --- helper untuk bikin chart ---
+def plot_fundamental(df: pd.DataFrame, symbol: str) -> io.BytesIO:
+    fig, axes = plt.subplots(2, 2, figsize=(10, 7))
+    fig.suptitle(f"Tren Fundamental {symbol}", fontsize=14)
+
+    # EPS
+    axes[0, 0].plot(df["report_date"], df["eps"], marker="o")
+    axes[0, 0].set_title("EPS")
+
+    # PER
+    axes[0, 1].plot(df["report_date"], df["per"], marker="o", color="orange")
+    axes[0, 1].set_title("PER")
+
+    # PBV
+    axes[1, 0].plot(df["report_date"], df["pbv"], marker="o", color="green")
+    axes[1, 0].set_title("PBV")
+
+    # Dividend Yield
+    axes[1, 1].plot(df["report_date"], df["dividend_yield"], marker="o", color="red")
+    axes[1, 1].set_title("Dividend Yield")
+
+    for ax in axes.flatten():
+        ax.tick_params(axis="x", rotation=45)
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+    buf = io.BytesIO()
+    plt.savefig(buf, format="png")
+    buf.seek(0)
+    plt.close(fig)
+    return buf
+
+# --- handler command /trend ---
+@router.message(Command("trend"))
+async def cmd_trend(message: Message):
+    args = message.text.split()[1:]
+    if len(args) < 2:
+        await message.answer("Gunakan format: /trend <kode_saham> <market>\nContoh: /trend BBCA idx")
+        return
+
+    kode_saham = args[0].upper()
+    market = args[1].lower()
+
+    # untuk IDX tambahkan .JK agar sesuai format Yahoo/DB
+    symbol = f"{kode_saham}.JK" if market == "idx" else kode_saham
+
+    df = get_fundamental_history(symbol, market)
+
+    if df.empty:
+        await message.answer(f"Tidak ada data fundamental untuk {symbol} ({market}).")
+        return
+
+    buf = plot_fundamental(df, symbol)
+    image = BufferedInputFile(buf.getvalue(), filename=f"{symbol}_trend.png")
+
+    await message.answer_photo(image, caption=f"📊 Tren fundamental {symbol} ({market.upper()})")    
+
+# Fungsi utama untuk memulai bot
+async def main():
+    logger.info("Memulai bot...")
+    session = ClientSession(connector=TCPConnector(ssl=False))  # Jika SSL issue
+    bot = Bot(token=BOT_TOKEN, session=session)  # Atau set proxy: bot = Bot(..., p
+
+    try:
+        bot = Bot(token=BOT_TOKEN)
+        dp = Dispatcher()
+        dp.include_router(router)
+        logger.info("Start polling")
+        await dp.start_polling(bot)
+    except Exception as e:
+        logger.error(f"Error saat memulai bot: {e}")
+        raise
+
+if __name__ == "__main__":
+    asyncio.run(main())

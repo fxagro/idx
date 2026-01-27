@@ -1,0 +1,1408 @@
+{
+  "common": {
+    "loading": "Memuat...",
+    "save": "Simpan",
+    "cancel": "Batal",
+    "edit": "Edit",
+    "delete": "Hapus",
+    "view": "Lihat",
+    "close": "Tutup",
+    "yes": "Ya",
+    "no": "Tidak",
+    "submit": "Kirim",
+    "reset": "Reset",
+    "search": "Cari",
+    "filter": "Filter",
+    "sort": "Urutkan",
+    "export": "Ekspor",
+    "import": "Impor",
+    "refresh": "Segarkan",
+    "back": "Kembali",
+    "next": "Selanjutnya",
+    "previous": "Sebelumnya",
+    "first": "Pertama",
+    "last": "Terakhir",
+    "show": "Tampilkan",
+    "hide": "Sembunyikan",
+    "more": "Lebih Banyak",
+    "less": "Lebih Sedikit",
+    "all": "Semua",
+    "none": "Tidak Ada",
+    "total": "Total",
+    "count": "Jumlah",
+    "amount": "Jumlah",
+    "date": "Tanggal",
+    "time": "Waktu",
+    "status": "Status",
+    "active": "Aktif",
+    "inactive": "Tidak Aktif",
+    "enabled": "Diaktifkan",
+    "disabled": "Dinonaktifkan",
+    "success": "Berhasil",
+    "error": "Error",
+    "warning": "Peringatan",
+    "info": "Info",
+    "confirm": "Konfirmasi",
+    "required": "Wajib",
+    "optional": "Opsional",
+    "login": "Masuk",
+    "logout": "Keluar",
+    "register": "Daftar",
+    "profile": "Profil",
+    "settings": "Pengaturan",
+    "dashboard": "Dasbor",
+    "network": "Jaringan",
+    "admin": "Admin",
+    "user": "Pengguna",
+    "users": "Pengguna",
+    "email": "Email",
+    "password": "Kata Sandi",
+    "username": "Nama Pengguna",
+    "name": "Nama",
+    "role": "Peran",
+    "quota": "Kuota",
+    "commission": "Komisi",
+    "referral": "Referal",
+    "referrals": "Referal",
+    "earnings": "Penghasilan",
+    "monthly": "Bulanan",
+    "daily": "Harian",
+    "weekly": "Mingguan",
+    "yearly": "Tahunan",
+    "level": "Level",
+    "direct": "Langsung",
+    "indirect": "Tidak Langsung",
+    "total": "Total",
+    "percentage": "Persentase",
+    "rate": "Tarif",
+    "currency": "Mata Uang",
+    "usd": "USD",
+    "english": "Inggris",
+    "indonesian": "Indonesia",
+    "language": "Bahasa",
+    "noData": "Tidak Ada Data"
+  },
+  "navbar": {
+    "dashboard": "Dasbor",
+    "dashboardV2": "Dasbor V2",
+    "stockData": "Data Saham",
+    "stockList": "Daftar Saham",
+    "watchlist": "Watchlist",
+    "topLists": "Top Lists",
+    "topGainers": "Pemenang Teratas",
+    "topLosers": "Pecundang Teratas",
+    "latestDay": "Hari Terakhir",
+    "noDataAvailable": "Tidak ada data untuk tanggal yang dipilih",
+    "volume": "Vol",
+    "analysis": "Analisis",
+    "aiAnalysis": "Analisis AI",
+    "aiV2": "Analisis AI V2",
+    "technicalAnalysis": "Analisis Teknis",
+    "fundamentalAnalysis": "Analisis Fundamental",
+    "bandarmologi": "Bandarmologi",
+    "brokerSummary": "Ringkasan Broker",
+    "myNetwork": "Jaringan Saya",
+    "adminPanel": "Panel Admin",
+    "login": "Masuk",
+    "register": "Daftar",
+    "logout": "Keluar",
+    "virtualTrading": "Trading Virtual",
+    "portfolio": "Portofolio",
+    "history": "Riwayat",
+    "dashboard": "Dasbor",
+    "stockList": "Daftar Saham",
+    "watchlist": "Watchlist",
+    "topGainers": "Pemenang Teratas",
+    "topLosers": "Pecundang Teratas",
+    "aiAnalysis": "Analisis AI",
+    "technicalAnalysis": "Analisis Teknis",
+    "fundamentalAnalysis": "Analisis Fundamental",
+    "bandarmologi": "Bandarmologi",
+    "brokerSummary": "Ringkasan Broker",
+    "stockData": "Data Saham",
+    "topLists": "Top Lists",
+    "analysis": "Analisis",
+    "marketOverview": "Ikhtisar Pasar",
+    "indeksIdx": "Indeks IDX",
+    "transaksiBroker": "Transaksi Broker"
+  },
+  "dashboard": {
+    "title": "Dasbor",
+    "subtitle": "Ringkasan aktivitas trading dan penghasilan Anda",
+    "welcome": "Selamat datang kembali, {{email}}!",
+    "aiQuota": "Kuota AI",
+    "totalReferrals": "Total Referal",
+    "directReferrals": "Referal Langsung",
+    "totalEarnings": "Total Penghasilan",
+    "thisMonth": "Bulan Ini",
+    "recentCommissions": "Komisi Terkini",
+    "portfolioSummary": "Ringkasan Portofolio",
+    "viewFullPortfolio": "Lihat Portofolio Lengkap",
+    "quickActions": "Aksi Cepat",
+    "aiAnalysis": "Analisis AI",
+    "myNetwork": "Jaringan Saya",
+    "portfolio": "Portofolio",
+    "adminPanel": "Panel Admin",
+    "noCommissions": "Belum ada komisi",
+    "noCommissionsDesc": "Komisi akan muncul di sini ketika referal Anda melakukan pembelian",
+    "cards": {
+      "aiQuota": {
+        "title": "Kuota AI",
+        "limit": "Batas",
+        "lowQuota": "Peringatan kuota rendah",
+        "upgradePlan": "Upgrade Paket"
+      },
+      "referrals": {
+        "title": "Total Referal",
+        "loading": "Memuat referal..."
+      },
+      "commissions": {
+        "title": "Komisi Terkini",
+        "noData": "Tidak ada data komisi"
+      }
+    },
+    "sections": {
+      "quickActions": "Aksi Cepat",
+      "recentCommissions": "Komisi Terkini",
+      "portfolioSummary": "Ringkasan Portofolio",
+      "realTimeAnalysis": "Analisis Saham Real-time",
+      "topGainersLosers": "Top Gainers & Losers",
+      "traditionalAnalysis": "Alat Analisis Tradisional",
+      "marketOverview": "Ikhtisar Pasar"
+    },
+    "buttons": {
+      "aiAnalysis": "Analisis AI",
+      "myNetwork": "Jaringan Saya",
+      "adminPanel": "Panel Admin",
+      "portfolio": "Portofolio",
+      "viewFullPortfolio": "Lihat Portofolio Lengkap",
+      "hideChart": "Sembunyikan Chart",
+      "showChart": "Tampilkan Chart",
+      "runAnalysis": "Jalankan Analisis",
+      "loading": "Memuat..."
+    },
+    "tables": {
+      "commissions": {
+        "noData": "Tidak ada data komisi",
+        "month": "Bulan",
+        "amount": "Jumlah",
+        "count": "Jumlah"
+      }
+    },
+    "portfolio": {
+      "cash": "Saldo Kas",
+      "holdings": "Nilai Holdings",
+      "totalValue": "Total Nilai Portofolio",
+      "notAvailable": "Data portofolio tidak tersedia"
+    },
+    "placeholders": {
+      "stockCode": "Masukkan kode saham (contoh: BBCA)"
+    },
+    "alerts": {
+      "enterStockCode": "Silakan masukkan kode saham",
+      "passwordChanged": "Kata sandi berhasil diubah",
+      "passwordChangeFailed": "Gagal mengubah kata sandi"
+    },
+    "validation": {
+      "passwordMismatch": "Kata sandi tidak cocok",
+      "passwordMinLength": "Kata sandi harus minimal 8 karakter"
+    },
+    "stats": {
+      "totalReferrals": "Total Referal",
+      "directReferrals": "Referal Langsung",
+      "totalEarnings": "Total Penghasilan",
+      "thisMonth": "Bulan Ini"
+    },
+    "emptyStates": {
+      "noReferrals": "Belum ada referal",
+      "shareReferralLink": "Bagikan link referal Anda untuk mulai membangun jaringan",
+      "noCommissionHistory": "Tidak ada riwayat komisi",
+      "commissionsWillAppear": "Komisi akan muncul di sini ketika referal Anda melakukan pembelian"
+    },
+    "howItWorks": {
+      "title": "Cara Kerja Sistem Komisi",
+      "directReferrals": {
+        "title": "Referal Langsung",
+        "description": "Dapatkan komisi ketika seseorang mendaftar menggunakan link referal Anda"
+      },
+      "multiLevel": {
+        "title": "Multi-Level",
+        "description": "Dapatkan penghasilan dari referal referal Anda hingga 2 level"
+      },
+      "monthlyPayouts": {
+        "title": "Pembayaran Bulanan",
+        "description": "Semua komisi diproses secara otomatis dan dibayarkan setiap bulan"
+      }
+    }
+  },
+  "admin": {
+    "title": "Panel Admin",
+    "subtitle": "Kelola pengguna, komisi, dan jaringan afiliasi",
+    "userManagement": "Manajemen Pengguna",
+    "commissionSettings": "Pengaturan Komisi",
+    "networkOverview": "Ringkasan Jaringan",
+    "usersCount": "pengguna",
+    "totalUsers": "Total Pengguna",
+    "totalReferrals": "Total Referal",
+    "totalCommissions": "Total Komisi",
+    "commissionStructure": "Struktur Komisi",
+    "directReferral": "Referal Langsung",
+    "levelCommission": "Komisi Level",
+    "monthlyPayouts": "Pembayaran Bulanan",
+    "l0Commission": "Komisi L0",
+    "l1Commission": "Komisi L1",
+    "totalPerSubscription": "Total per langganan",
+    "maxAllowed": "Maksimum yang diizinkan",
+    "updateSettings": "Perbarui Pengaturan",
+    "changePassword": "Ubah Kata Sandi",
+    "newPassword": "Kata Sandi Baru",
+    "confirmPassword": "Konfirmasi Kata Sandi",
+    "enterNewPassword": "Masukkan kata sandi baru",
+    "confirmNewPassword": "Konfirmasi kata sandi baru",
+    "passwordMinLength": "Kata sandi harus minimal 6 karakter",
+    "passwordMismatch": "Kata sandi tidak cocok",
+    "passwordRequired": "Kedua field kata sandi wajib diisi",
+    "passwordUpdated": "Kata sandi berhasil diperbarui",
+    "settingsUpdated": "Pengaturan komisi berhasil diperbarui",
+    "quotaUpdated": "Kuota pengguna berhasil diperbarui",
+    "referralCodeUpdated": "Kode referal diperbarui menjadi",
+    "referralCodeRequired": "Kode referal wajib diisi",
+    "referralCodeInvalid": "Kode referal harus 4-20 karakter, alfanumerik, garis bawah, atau tanda hubung saja",
+    "quotaNegative": "Kuota tidak boleh negatif",
+    "commissionTooHigh": "Total tarif komisi tidak boleh melebihi 60%",
+    "updating": "Memperbarui...",
+    "updatePassword": "Perbarui Kata Sandi",
+    "viewNetwork": "Lihat Jaringan",
+    "user": "Pengguna",
+    "role": "Peran",
+    "aiQuota": "Kuota AI",
+    "referralCode": "Kode Referal",
+    "referrals": "Referal",
+    "totalEarned": "Total Diperoleh",
+    "actions": "Aksi",
+    "notSet": "Belum disetel",
+    "enterReferralCode": "Masukkan kode referal",
+    "howItWorks": "Cara Kerja Sistem Komisi",
+    "directReferralsStep": "Referal Langsung",
+    "directReferralsDesc": "Dapatkan komisi ketika seseorang mendaftar menggunakan link referal Anda",
+    "multiLevelStep": "Multi-Level",
+    "multiLevelDesc": "Dapatkan penghasilan dari referal referal Anda hingga 2 level",
+    "monthlyPayoutsStep": "Pembayaran Bulanan",
+    "monthlyPayoutsDesc": "Semua komisi diproses secara otomatis dan dibayarkan setiap bulan",
+    "tabs": {
+      "userManagement": "Manajemen Pengguna",
+      "commissionSettings": "Pengaturan Komisi",
+      "networkOverview": "Ringkasan Jaringan"
+    },
+    "sections": {
+      "userManagement": {
+        "title": "Manajemen Pengguna",
+        "users": "pengguna"
+      },
+      "commissionSettings": {
+        "title": "Pengaturan Komisi",
+        "subtitle": "Konfigurasi tarif komisi untuk sistem afiliasi"
+      },
+      "networkOverview": {
+        "title": "Ringkasan Jaringan",
+        "subtitle": "Ringkasan struktur jaringan afiliasi"
+      }
+    },
+    "tables": {
+      "users": {
+        "aiQuota": "Kuota AI",
+        "referralCode": "Kode Referal",
+        "referrals": "Referal",
+        "totalEarned": "Total Diperoleh",
+        "virtualBalance": "Saldo Virtual"
+      }
+    },
+    "buttons": {
+      "update": "Perbarui",
+      "cancel": "Batal",
+      "updating": "Memperbarui...",
+      "updateSettings": "Perbarui Pengaturan",
+      "updatePassword": "Perbarui Kata Sandi",
+      "view": "Lihat"
+    },
+    "modals": {
+      "changePassword": {
+        "title": "Ubah Kata Sandi",
+        "newPassword": "Kata Sandi Baru",
+        "confirmPassword": "Konfirmasi Kata Sandi"
+      }
+    },
+    "placeholders": {
+      "newPassword": "Masukkan kata sandi baru",
+      "confirmPassword": "Konfirmasi kata sandi baru"
+      },
+    "validation": {
+      "commissionExceed": "Total tarif komisi tidak boleh melebihi 60%",
+      "referralCodeRequired": "Kode referal wajib diisi",
+      "referralCodeFormat": "Kode referal harus 4-20 karakter, alfanumerik, garis bawah, atau tanda hubung saja",
+      "passwordRequired": "Kedua field kata sandi wajib diisi",
+      "passwordMismatch": "Kata sandi tidak cocok",
+      "passwordMinLength": "Kata sandi harus minimal 6 karakter",
+      "quotaNegative": "Kuota tidak boleh negatif"
+    },
+    "commissionSettings": {
+      "l0Rate": "Tarif Komisi L0",
+      "l1Rate": "Tarif Komisi L1",
+      "directReferral": "Komisi Referal Langsung",
+      "secondLevel": "Komisi Level Kedua",
+      "totalRate": "Total Tarif Komisi"
+    },
+    "networkStats": {
+      "totalUsers": "Total Pengguna",
+      "totalReferrals": "Total Referal",
+      "totalCommissions": "Total Komisi"
+    },
+    "commissionStructure": {
+      "title": "Struktur Komisi",
+      "l0Commission": "Komisi L0",
+      "l1Commission": "Komisi L1",
+      "totalPerSubscription": "Total per langganan",
+      "maxAllowed": "Maksimum yang diizinkan: 60%"
+    }
+  },
+  "network": {
+    "title": "Jaringan Saya",
+    "subtitle": "Lihat jaringan referal dan riwayat komisi Anda",
+    "referralNetwork": "Jaringan Referal",
+    "commissionHistory": "Riwayat Komisi",
+    "noReferrals": "Belum ada referal",
+    "noReferralsDesc": "Bagikan link referal Anda untuk mulai membangun jaringan",
+    "noCommissionHistory": "Tidak ada riwayat komisi",
+    "noCommissionHistoryDesc": "Komisi akan muncul di sini ketika referal Anda melakukan pembelian",
+    "showEarnings": "Tampilkan Penghasilan",
+    "hideEarnings": "Sembunyikan Penghasilan",
+    "joined": "Bergabung",
+    "earned": "Diperoleh",
+    "from": "Dari",
+    "level": "Level",
+    "stats": {
+      "totalReferrals": "Total Referal",
+      "directReferrals": "Referal Langsung",
+      "totalEarnings": "Total Penghasilan",
+      "thisMonth": "Bulan Ini"
+    },
+    "sections": {
+      "referralNetwork": "Jaringan Referal",
+      "commissionHistory": "Riwayat Komisi"
+    },
+    "buttons": {
+      "showEarnings": "Tampilkan Penghasilan",
+      "hideEarnings": "Sembunyikan Penghasilan"
+    },
+    "emptyStates": {
+      "noReferrals": "Belum ada referal",
+      "shareReferralLink": "Bagikan link referal Anda untuk mulai membangun jaringan",
+      "noCommissionHistory": "Tidak ada riwayat komisi",
+      "commissionsWillAppear": "Komisi akan muncul di sini ketika referal Anda melakukan pembelian"
+    },
+    "howItWorks": {
+      "title": "Cara Kerja Sistem Komisi",
+      "directReferrals": {
+        "title": "Referal Langsung",
+        "description": "Dapatkan komisi ketika seseorang mendaftar menggunakan link referal Anda"
+      },
+      "multiLevel": {
+        "title": "Multi-Level",
+        "description": "Dapatkan penghasilan dari referal referal Anda hingga 2 level"
+      },
+      "monthlyPayouts": {
+        "title": "Pembayaran Bulanan",
+        "description": "Semua komisi diproses secara otomatis dan dibayarkan setiap bulan"
+      }
+    }
+  },
+  "validation": {
+    "required": "Field ini wajib diisi",
+    "email": "Masukkan alamat email yang valid",
+    "password": "Kata sandi harus minimal 6 karakter",
+    "confirmPassword": "Kata sandi tidak cocok",
+    "referralCode": "Kode referal harus 4-20 karakter, alfanumerik, garis bawah, atau tanda hubung saja",
+    "quota": "Kuota harus berupa angka positif",
+    "commission": "Tarif komisi harus antara 0 dan 0.6 (60%)"
+  },
+  "toast": {
+    "success": "Berhasil",
+    "error": "Error",
+    "warning": "Peringatan",
+    "info": "Informasi"
+  },
+  "tradingView": {
+    "title": "📺 TradingView Pro",
+    "subtitle": "Platform TradingView-like dengan fitur analisis teknis lengkap",
+    "connected": "Terhubung",
+    "disconnected": "Terputus",
+    "watchlist": "Watchlist",
+    "screener": "Screener",
+    "portfolio": "Portofolio",
+    "settings": "Pengaturan",
+    "indicators": "Indikator",
+    "drawingTools": "Alat Gambar",
+    "trendLine": "Garis Tren",
+    "horizontalLine": "Garis Horizontal",
+    "rectangle": "Persegi",
+    "fibonacci": "Fibonacci",
+    "volume": "Volume",
+    "price": "Harga",
+    "date": "Tanggal",
+    "symbol": "Simbol",
+    "timeframe": "Kerangka Waktu",
+    "chartType": "Tipe Grafik",
+    "candlestick": "Candlestick",
+    "line": "Garis",
+    "indicatorsPanel": "Panel Indikator",
+    "mainChart": "Grafik Utama",
+    "rsi": "RSI",
+    "macd": "MACD",
+    "stochastic": "Stochastic",
+    "sma": "SMA",
+    "ema": "EMA",
+    "bollingerBands": "Bollinger Bands",
+    "balance": "Saldo",
+    "positions": "Posisi",
+    "orders": "Order",
+    "trades": "Trading",
+    "buy": "Beli",
+    "sell": "Jual",
+    "quantity": "Jumlah",
+    "avgPrice": "Harga Rata-rata",
+    "currentPrice": "Harga Saat Ini",
+    "pnl": "P&L",
+    "noIndicators": "Tidak ada indikator dipilih",
+    "loading": "Memuat...",
+    "error": "Error",
+    "retry": "Coba Lagi",
+    "shareToX": "Bagikan ke X",
+    "lightTheme": "Tema Terang",
+    "darkTheme": "Tema Gelap",
+    "grid": "Grid",
+    "showGrid": "Tampilkan Grid",
+    "hideGrid": "Sembunyikan Grid",
+    "showVolume": "Tampilkan Volume",
+    "hideVolume": "Sembunyikan Volume",
+    "addToWatchlist": "Tambah ke Watchlist",
+    "removeFromWatchlist": "Hapus dari Watchlist",
+    "screenStocks": "Screen Saham",
+    "placeOrder": "Pasang Order",
+    "orderType": "Tipe Order",
+    "quickTrade": "Trading Cepat",
+    "noPositions": "Belum ada posisi",
+    "noOrders": "Belum ada order",
+    "noTrades": "Belum ada trading",
+    "totalValue": "Total Nilai",
+    "totalGainLoss": "Total Untung/Rugi",
+    "tradingStats": "Statistik Trading",
+    "totalTrades": "Total Trading",
+    "buyTrades": "Trading Beli",
+    "sellTrades": "Trading Jual",
+    "totalVolume": "Total Volume",
+    "totalValueTraded": "Total Nilai Trading",
+    "selectSymbol": "Pilih Simbol",
+    "toggleLanguage": "Ganti Bahasa",
+    "toggleTheme": "Ganti Tema",
+    "toggleSidebar": "Toggle Sidebar",
+    "atr": "ATR",
+    "williamsR": "Williams %R",
+    "cci": "CCI",
+    "ichimoku": "Ichimoku",
+    "adx": "ADX",
+    "parabolicSar": "Parabolic SAR"
+  },
+  "virtualTrading": {
+    "title": "Trading Virtual",
+    "subtitle": "Latihan trading dengan uang virtual menggunakan data pasar real-time",
+    "virtualBalance": "Saldo Virtual",
+    "practiceOnly": "Latihan Saja",
+    "realTimeData": "Data Real-time",
+    "portfolio": "Portofolio",
+    "portfolioSubtitle": "Lihat portofolio trading virtual dan performa Anda",
+    "viewPortfolio": "Lihat Portofolio",
+    "viewHistory": "Lihat Riwayat",
+    "trade": "Trading",
+    "history": "Riwayat",
+    "analytics": "Analitik",
+    "myPortfolio": "Portofolio Saya",
+    "noHoldings": "Belum ada kepemilikan. Mulai trading!",
+    "symbol": "Simbol",
+    "quantity": "Jumlah",
+    "avgPrice": "Harga Rata-rata",
+    "currentPrice": "Harga Saat Ini",
+    "gainLoss": "Untung/Rugi",
+    "portfolioValue": "Nilai Portofolio",
+    "noChartData": "Tidak ada data chart",
+    "searchStocks": "Cari Saham",
+    "searchPlaceholder": "Masukkan simbol saham atau nama...",
+    "tradeStocks": "Trading Saham",
+    "selectQuantity": "Pilih jumlah untuk trading",
+    "buy": "Beli",
+    "sell": "Jual",
+    "buying": "Membeli...",
+    "selling": "Menjual...",
+    "transactionHistory": "Riwayat Transaksi",
+    "noTransactions": "Belum ada transaksi",
+    "type": "Tipe",
+    "price": "Harga",
+    "total": "Total",
+    "date": "Tanggal",
+    "performance": "Performa",
+    "totalValue": "Total Nilai Portofolio",
+    "totalGainLoss": "Total Untung/Rugi",
+    "tradingStats": "Statistik Trading",
+    "totalTrades": "Total Trading",
+    "buyTrades": "Trading Beli",
+    "sellTrades": "Trading Jual",
+    "totalVolume": "Total Volume",
+    "totalValueTraded": "Total Nilai Trading",
+    "disclaimer": "Penafian",
+    "disclaimerText": "Ini adalah simulasi trading virtual untuk tujuan edukasi saja. Tidak ada uang sungguhan yang terlibat dan tidak ada trading yang benar-benar dieksekusi. Data pasar disediakan untuk tujuan demonstrasi.",
+    "navbar": {
+      "virtualTrading": "Trading Virtual"
+    }
+  },
+  "market": {
+    "title": "Ikhtisar Pasar",
+    "subtitle": "Data pasar real-time dan ringkasan transaksi broker",
+    "indeksIdx": "Indeks IDX",
+    "transaksiBroker": "Transaksi Broker",
+    "dateFilter": "Periode",
+    "week": "Minggu",
+    "month": "Bulan",
+    "months": "Bulan",
+    "sortVolume": "Urutkan Volume",
+    "sortNilai": "Urutkan Nilai",
+    "sortFrekuensi": "Urutkan Frekuensi",
+    "indexCode": "Kode Indeks",
+    "closing": "Penutupan",
+    "change": "Perubahan",
+    "volume": "Volume",
+    "value": "Nilai",
+    "marketCap": "Kapitalisasi Pasar",
+    "frequency": "Frekuensi",
+    "brokerCode": "Kode Broker",
+    "companyName": "Nama Perusahaan",
+    "noData": "Tidak ada data tersedia",
+    "indexChart": "Grafik Performa Indeks",
+    "noChartData": "Tidak ada data grafik tersedia",
+    "table": {
+      "kodeIndeks": "Kode Indeks",
+      "penutupan": "Penutupan",
+      "selisih": "Selisih",
+      "volume": "Volume",
+      "nilai": "Nilai",
+      "kapitalisasiPasar": "Kapitalisasi Pasar",
+      "frekuensi": "Frekuensi",
+      "broker": "Broker",
+      "buy": "Beli",
+      "sell": "Jual",
+      "net": "Net",
+      "noData": "Tidak ada data tersedia"
+    },
+    "chart": {
+      "title": "Grafik Indeks IDX",
+      "noData": "Tidak ada data untuk ditampilkan"
+    },
+    "tabs": {
+      "indeksIdx": "Indeks IDX",
+      "transaksiBroker": "Transaksi Broker"
+    },
+    "buttons": {
+      "applyFilter": "Terapkan Filter",
+      "resetFilter": "Reset Filter",
+      "exportData": "Ekspor Data"
+    },
+    "loading": "Memuat data...",
+    "error": "Terjadi kesalahan saat memuat data"
+  },
+  "aiV2": {
+    "title": "Analisis AI V2",
+    "subtitle": "Analisis saham dan wawasan pasar bertenaga AI tingkat lanjut",
+    "marketOverview": "Ikhtisar Pasar",
+    "deepDive": "Deep Dive Multi-Saham",
+    "scenarioSimulator": "Simulator Skenario",
+    "strategyGenerator": "Generator Strategi AI",
+    "sentimentDashboard": "Dashboard Sentimen AI",
+    "patternFinder": "Pencari Pola AI",
+    "alerts": "Peringatan & Watchlist AI",
+    "loading": "Memuat...",
+    "analyzing": "Menganalisis...",
+    "generate": "Generate",
+    "sendToVirtualTrading": "Kirim ke Trading Virtual",
+    "createAlert": "Buat Peringatan",
+    "viewDetails": "Lihat Detail",
+    "bullish": "Bullish",
+    "bearish": "Bearish",
+    "neutral": "Netral",
+    "positive": "Positif",
+    "negative": "Negatif",
+    "high": "Tinggi",
+    "medium": "Sedang",
+    "low": "Rendah",
+    "confidence": "Kepercayaan",
+    "riskLevel": "Tingkat Risiko",
+    "recommendation": "Rekomendasi",
+    "analysis": "Analisis",
+    "overview": "Ikhtisar",
+    "summary": "Ringkasan",
+    "details": "Detail",
+    "sectors": "Sektor",
+    "stocks": "Saham",
+    "news": "Berita",
+    "social": "Sosial",
+    "patterns": "Pola",
+    "alerts": "Peringatan",
+    "watchlist": "Watchlist",
+    "strategy": "Strategi",
+    "scenarios": "Skenario",
+    "market": "Pasar",
+    "technical": "Teknis",
+    "fundamental": "Fundamental",
+    "sentiment": "Sentimen",
+    "price": "Harga",
+    "volume": "Volume",
+    "change": "Perubahan",
+    "value": "Nilai",
+    "frequency": "Frekuensi",
+    "score": "Skor",
+    "rating": "Rating",
+    "target": "Target",
+    "entry": "Entry",
+    "stopLoss": "Stop Loss",
+    "takeProfit": "Take Profit",
+    "timeframe": "Kerangka Waktu",
+    "short": "Pendek",
+    "medium": "Sedang",
+    "long": "Panjang",
+    "daily": "Harian",
+    "weekly": "Mingguan",
+    "monthly": "Bulanan",
+    "quarterly": "Triwulanan",
+    "yearly": "Tahunan",
+    "morningBrief": "Brief Pagi",
+    "closingSummary": "Ringkasan Penutupan",
+    "topBullishSectors": "Sektor Bullish Teratas",
+    "topBearishSectors": "Sektor Bearish Teratas",
+    "sectorHeatmap": "Heatmap Sektor",
+    "comparativeAnalysis": "Analisis Komparatif",
+    "radarChart": "Grafik Radar",
+    "comparisonTable": "Tabel Perbandingan",
+    "whatIf": "Bagaimana Jika",
+    "macroeconomicImpact": "Dampak Makroekonomi",
+    "stockImpact": "Dampak Saham",
+    "sectorImpact": "Dampak Sektor",
+    "strategyType": "Tipe Strategi",
+    "value": "Nilai",
+    "growth": "Pertumbuhan",
+    "swing": "Swing",
+    "intraday": "Intraday",
+    "stockPicks": "Pilihan Saham",
+    "reasoning": "Alasan",
+    "patternRecognition": "Pengenalan Pola",
+    "chartPatterns": "Pola Grafik",
+    "headShoulders": "Head & Shoulders",
+    "doubleTop": "Double Top",
+    "doubleBottom": "Double Bottom",
+    "triangle": "Segitiga",
+    "wedge": "Wedge",
+    "flag": "Flag",
+    "pennant": "Pennant",
+    "cupHandle": "Cup & Handle",
+    "alertConditions": "Kondisi Peringatan",
+    "undervalued": "Undervalued",
+    "overvalued": "Overvalued",
+    "sentimentNegative": "Sentimen Negatif",
+    "sentimentPositive": "Sentimen Positif",
+    "priceBreakout": "Breakout Harga",
+    "volumeSpike": "Lonjakan Volume",
+    "rsiOversold": "RSI Oversold",
+    "rsiOverbought": "RSI Overbought",
+    "movingAverageCross": "Crossing Moving Average",
+    "bollingerBand": "Bollinger Band",
+    "fibonacci": "Fibonacci",
+    "supportResistance": "Support/Resistance",
+    "trendChange": "Perubahan Tren",
+    "divergence": "Divergensi",
+    "validation": {
+      "selectAtLeastOneStock": "Silakan pilih setidaknya satu saham",
+      "enterQuestion": "Silakan masukkan pertanyaan Anda",
+      "selectStrategyType": "Silakan pilih tipe strategi",
+      "enterAlertCondition": "Silakan masukkan kondisi peringatan",
+      "selectTimeframe": "Silakan pilih kerangka waktu"
+    },
+    "placeholders": {
+      "multipleStocks": "contoh: BBCA, BBRI, TLKM, ASII",
+      "whatIfQuestion": "contoh: Bagaimana jika suku bunga naik 1%?",
+      "alertCondition": "contoh: Saham menjadi undervalued berdasarkan rasio PE"
+    },
+    "errors": {
+      "fetchMarketData": "Gagal mengambil data pasar",
+      "fetchStockData": "Gagal mengambil data saham",
+      "analysisFailed": "Analisis gagal",
+      "networkError": "Kesalahan jaringan terjadi",
+      "invalidResponse": "Respons tidak valid dari server",
+      "quotaExceeded": "Kuota AI habis"
+    },
+    "loadingStates": {
+      "fetchingMarketData": "Mengambil data pasar...",
+      "generatingAnalysis": "Menghasilkan analisis AI...",
+      "loadingChart": "Memuat data grafik...",
+      "processing": "Memproses..."
+    },
+    "chart": {
+      "priceChart": "Grafik Harga",
+      "volumeChart": "Grafik Volume",
+      "sectorChart": "Grafik Sektor",
+      "radarChart": "Grafik Radar",
+      "heatmap": "Heatmap"
+    },
+    "tabs": {
+      "marketOverview": "Ikhtisar Pasar",
+      "deepDive": "Deep Dive",
+      "scenarios": "Skenario",
+      "strategies": "Strategi",
+      "sentiment": "Sentimen",
+      "patterns": "Pola",
+      "alerts": "Peringatan"
+    }
+  },
+  "aiPage": {
+    "title": "Analisis Saham AI",
+    "subtitle": "Dapatkan wawasan dan prediksi cerdas untuk saham Anda",
+    "analysisParameters": "Parameter Analisis",
+    "stockSymbol": "Simbol Saham",
+    "market": "Pasar",
+    "yourQuestion": "Pertanyaan Anda",
+    "analyzeStock": "Analisis Saham",
+    "analyzing": "Menganalisis...",
+    "priceChart": "Grafik Harga",
+    "loading": "Memuat...",
+    "enterStockSymbol": "Masukkan simbol saham untuk melihat grafik",
+    "analysisResults": "Hasil Analisis",
+    "technicalAnalysis": "Analisis Teknis",
+    "fundamentalAnalysis": "Analisis Fundamental",
+    "newsAnalysis": "Analisis Berita",
+    "aiAnalysis": "Analisis AI",
+    "marketSentiment": "Sentimen Pasar",
+    "recommendation": "Rekomendasi",
+    "riskAssessment": "Penilaian Risiko",
+    "keyFactors": "Faktor Kunci",
+    "investmentThesis": "Thesis Investasi",
+    "pricePrediction": "Prediksi Harga",
+    "analysisSummary": "Ringkasan Analisis",
+    "noTechnicalAnalysis": "Tidak ada analisis teknis tersedia",
+    "noAdditionalAnalysis": "Tidak ada analisis tambahan tersedia",
+    "noSentimentAnalysis": "Tidak ada analisis sentimen tersedia",
+    "noRecommendation": "Tidak ada rekomendasi tersedia",
+    "riskLevel": "Tingkat Risiko",
+    "technicalPoints": "Poin Teknis",
+    "fundamentalPoints": "Poin Fundamental",
+    "newsArticles": "Artikel Berita",
+    "overallSentiment": "Sentimen Keseluruhan",
+    "quota": "Kuota AI",
+    "remaining": "tersisa",
+    "plan": "Paket",
+    "lowQuotaWarning": "Peringatan kuota rendah",
+    "quotaExceeded": "Kuota AI habis. Silakan upgrade paket Anda atau tunggu reset kuota.",
+    "validation": {
+      "fillAllFields": "Silakan isi semua field",
+      "invalidSymbol": "Simbol saham harus 4-5 huruf kapital (contoh: BBCA, TLKM)",
+      "quotaExceeded": "Kuota AI habis. Silakan upgrade paket Anda atau tunggu reset kuota."
+    },
+    "placeholders": {
+      "stockSymbol": "contoh: BBCA, TLKM, ASII",
+      "question": "contoh: Prediksikan pergerakan harga besok, Apa saja level support dan resistance kunci?, Apakah saya harus beli atau jual saham ini?"
+    },
+    "errors": {
+      "fetchQuota": "Gagal mengambil kuota AI",
+      "fetchStockData": "Gagal mengambil data saham",
+      "analysisFailed": "Gagal mengambil analisis",
+      "networkError": "Kesalahan jaringan terjadi",
+      "invalidResponse": "Respons tidak valid dari server"
+    },
+    "loadingStates": {
+      "fetchingQuota": "Mengambil kuota AI...",
+      "loadingChart": "Memuat data grafik...",
+      "analyzing": "Menganalisis data saham..."
+    },
+    "chart": {
+      "priceChart": "Grafik Harga",
+      "60DayChart": "Grafik Harga 60 Hari",
+      "open": "Buka",
+      "high": "Tertinggi",
+      "low": "Terendah",
+      "close": "Tutup",
+      "volume": "Volume"
+    },
+    "sentiment": {
+      "positive": "Positif",
+      "negative": "Negatif",
+      "neutral": "Netral"
+    },
+    "riskLevels": {
+      "low": "RENDAH",
+      "medium": "SEDANG",
+      "high": "TINGGI"
+    },
+    "markets": {
+      "idx": "Indonesia (IDX)",
+      "us": "Amerika Serikat (US)"
+    },
+    "noData": "Tidak ada analisa tersedia",
+    "noQuota": "Kuota AI Anda sudah habis."
+  },
+  "landing": {
+    "hero": {
+      "badge": "Prediksi AI Bandarmologi",
+      "title": "myTradeX — AI Saham Indonesia & USA",
+      "subtitle": "Prediksi harga saham berbasis AI dan Machine Learning, analisa teknikal, fundamental, & sentimen. Uji strategi di akun virtual sebelum masuk pasar.",
+      "cta": {
+        "primary": "Mulai Prediksi AI",
+        "secondary": "Coba Trading Virtual",
+        "telegram": "Coba di Telegram"
+      },
+      "trust": {
+        "stocks": "Saham IDX & US",
+        "prediction": "Prediksi AI",
+        "bandarmology": "Bandarmologi IDX"
+      }
+    },
+    "features": {
+      "title": "Prediksi & Analisis Saham Cerdas",
+      "subtitle": "Gabungkan model ML (XGBoost/ARIMA/LSTM/Random Forest) + teknikal + fundamental + sentimen untuk rekomendasi yang solid.",
+      "items": {
+        "aiPrediction": "🔮 Prediksi AI",
+        "aiPredictionDesc": "Multi-model ML + confidence interval dari volatilitas (GARCH).",
+        "technical": "📈 Teknikal Komplit",
+        "technicalDesc": "EMA, MACD, BB, Stochastic, VWAP, Fibonacci, S/R.",
+        "sentiment": "📰 Sentimen AI",
+        "sentimentDesc": "Berita & X (Twitter) → skor Pos/Net/Neg otomatis.",
+        "backtest": "🧪 Backtest & Forward Test",
+        "backtestDesc": "Uji strategi di akun virtual sebelum real trading."
+      }
+    },
+    "aiMethods": {
+      "title": "Metode Analisis & Prediksi",
+      "subtitle": "Dari indikator klasik hingga Deep Learning — semuanya dalam satu platform.",
+      "items": {
+        "linearRegression": "Linear Regression",
+        "linearRegressionDesc": "Prediksi AI, tren (Naik/Turun/Stabil), confidence interval dari volatilitas.",
+        "emaTrend": "EMA Trend (12/26)",
+        "emaTrendDesc": "Bandingkan EMA12 vs EMA26, sinyal tren 1 hari ke depan.",
+        "macd": "MACD (12,26,9)",
+        "macdDesc": "MACD Line vs Signal Line, gunakan histogram untuk prediksi pendek.",
+        "supportResistance": "Support & Resistance",
+        "supportResistanceDesc": "Level pivot dari high/low/close 30 hari.",
+        "bollingerBands": "Bollinger Bands",
+        "bollingerBandsDesc": "BB(20,2) untuk Overbought/Oversold/Netral.",
+        "stochastic": "Stochastic (14,3)",
+        "stochasticDesc": "%K/%D untuk momentum & timing entry.",
+        "vwap": "VWAP (14)",
+        "vwapDesc": "Posisi harga vs harga rata-rata berbobot volume.",
+        "fibonacci": "Fibonacci",
+        "fibonacciDesc": "Retracement 23.6–78.6% dari range 30 hari.",
+        "garch": "GARCH(1,1)",
+        "garchDesc": "Estimasi volatilitas untuk band kepercayaan.",
+        "xgboost": "XGBoost",
+        "xgboostDesc": "Fitur Lag, EMA12, Volume, RSI, Volatility, High, Low untuk prediksi 5 hari.",
+        "arima": "ARIMA(5,1,0)",
+        "arimaDesc": "Model time-series untuk horizon 5 hari.",
+        "lstm": "LSTM (2-layer)",
+        "lstmDesc": "Sequence 30 hari (MinMaxScaler) untuk prediksi multi-step.",
+        "randomForest": "Random Forest",
+        "randomForestDesc": "Regressor dengan fitur teknikal & volatilitas."
+      }
+    },
+    "sentiment": {
+      "title": "Analisis Sentimen Real-time",
+      "description": "Ambil 50 tweet terakhir, nilai dengan NLP → label Positif / Netral / Negatif. Pantau perubahan sentimen untuk timing entry/exit.",
+      "positive": "Positif",
+      "neutral": "Netral",
+      "negative": "Negatif"
+    },
+    "botFeatures": {
+      "title": "Fitur Bot myTradeX",
+      "subtitle": "Semua analisa favorit trader Indonesia — tinggal ketik perintah di Telegram.",
+      "items": {
+        "topMovers": "Top Movers",
+        "topMoversDesc": "Top 30 Gainers/Losers/Active/Transaction.",
+        "foreignFlow": "Foreign Flow",
+        "foreignFlowDesc": "FA, FS, Net Buy/Sell asing.",
+        "bandarmology": "Bandarmologi IDX",
+        "bandarmologyDesc": "Lacak akumulasi & distribusi broker.",
+        "brokerRanking": "Broker Ranking",
+        "brokerRankingDesc": "Ranking broker & saham favoritnya.",
+        "indexSector": "Index & Sector",
+        "indexSectorDesc": "IHSG, LQ45, IDX30 & sektor unggulan.",
+        "fundamental": "Fundamental & Screener",
+        "fundamentalDesc": "EPS, PER, PBV, ROE, DY + filter undervalue.",
+        "technical": "Teknikal & Pola",
+        "technicalDesc": "RSI, MACD, MA, volume, candlestick.",
+        "aiSentiment": "Sentimen AI",
+        "aiSentimentDesc": "Berita & X (Twitter) → Positif/Netral/Negatif."
+      },
+      "telegramButton": "Buka Bot Telegram"
+    },
+    "bandarmology": {
+      "title": "📊 Bandarmologi IDX — Lacak Pergerakan Smart Money",
+      "features": {
+        "accumulation": "Akumulasi & Distribusi",
+        "accumulationDesc": "Deteksi kapan bandar besar mulai mengakumulasi atau melepas saham.",
+        "topBuyerSeller": "Top Buyer & Seller",
+        "topBuyerSellerDesc": "Pantau broker yang paling agresif membeli atau menjual.",
+        "heatmap": "Heatmap Saham",
+        "heatmapDesc": "Visualisasi saham yang sedang dikendalikan bandar."
+      },
+      "viewButton": "Lihat Bandarmologi IDX"
+    },
+    "gallery": {
+      "title": "📈 Output Grafik myTradeX",
+      "images": {
+        "ohlcChart": "Grafik OHLC",
+        "priceGraph": "Price Graph Diary",
+        "calendar": "Kalender Perubahan Harga",
+        "globalIndex": "Indeks Global",
+        "stockDatabase": "Database Saham",
+        "bandarmologyTable": "Tabel Bandarmologi"
+      }
+    },
+    "virtualTrading": {
+      "title": "Uji Strategi di Akun Virtual",
+      "description": "Backtest & forward test strategi Anda tanpa risiko. Mulai dari screening → entry → exit, lihat statistik performa sebelum eksekusi real.",
+      "features": {
+        "historical": "Backtest historis (win rate, profit factor, max drawdown).",
+        "forward": "Forward test paper-trade dengan kondisi pasar berjalan.",
+        "journal": "Catatan trade journal & evaluasi otomatis."
+      },
+      "buttons": {
+        "startSimulation": "Mulai Simulasi",
+        "viewPlans": "Lihat Paket"
+      },
+      "kpis": {
+        "winRate": "Win Rate (demo)",
+        "profitFactor": "Profit Factor",
+        "maxDD": "Max DD",
+        "trades": "Trades"
+      }
+    },
+    "faq": {
+      "title": "❓ Pertanyaan yang Sering Diajukan",
+      "questions": {
+        "whatIsmyTradeX": "Apa itu myTradeX?",
+        "whatIsmyTradeXAnswer": "myTradeX adalah platform analisa saham berbasis AI yang menggabungkan data fundamental, teknikal, sentimen, dan prediksi machine learning.",
+        "supportedStocks": "Saham apa saja yang didukung?",
+        "supportedStocksAnswer": "myTradeX mendukung semua saham di Bursa Efek Indonesia (IDX) serta 1000+ saham Amerika.",
+        "subscription": "Bagaimana cara berlangganan?",
+        "subscriptionAnswer": "Bulanan, 3 bulan, 6 bulan, atau 1 tahun. Mulai dari Rp50.000/bulan.",
+        "telegram": "Apakah bisa diakses lewat Telegram?",
+        "telegramAnswer": "Ya, terhubung langsung ke bot Telegram untuk analisa cepat dari ponsel."
+      }
+    },
+    "backtest": {
+      "title": "🚀 Strategi Quant Eksklusif – Hasil Backtest",
+      "subtitle": "Kami menggabungkan AI + Quantitative Trading ala Jim Simons untuk menghasilkan strategi semi-HFT. Berikut hasil backtest salah satu strategi tim kami pada saham IDX sejak 2010. Konsisten, stabil, dan luar biasa!",
+      "table": {
+        "period": "Periode",
+        "totalTrades": "Jumlah Trade",
+        "yearlyReturn": "Return Tahunan",
+        "profitFactor": "Profit Factor",
+        "maxDD": "Max DD"
+      },
+      "cta": "🚀 Gabung Group VIP & Pelajari Strategi Kami"
+    },
+    "footer": {
+      "brand": {
+        "title": "myTradeX",
+        "description": "Platform AI Saham Indonesia — analisa fundamental, teknikal, sentimen, dan bandarmologi dalam satu aplikasi."
+      },
+      "navigation": {
+        "title": "Navigasi",
+        "about": "Tentang Kami",
+        "faq": "FAQ",
+        "plans": "Paket & Harga",
+        "blog": "Blog"
+      },
+      "legal": {
+        "title": "Legal",
+        "privacy": "Privacy Policy",
+        "terms": "Terms & Conditions"
+      },
+      "apps": {
+        "title": "Aplikasi",
+        "googlePlay": "Google Play (Under Development)",
+        "appStore": "App Store (Under Development)"
+      }
+    }
+  },
+  "bandarmologi": {
+    "title": "Bandarmologi - Analisis Broker",
+    "subtitle": "Analisis transaksi broker dan data saham real-time",
+    "description": "Pantau aktivitas broker dan analisis pasar saham Indonesia",
+    "tabs": {
+      "analysis": "Analisis",
+      "summary": "Ringkasan",
+      "tradingPlan": "Rencana Trading"
+    },
+    "sections": {
+      "brokerAnalysis": "Analisis Broker",
+      "stockAnalysis": "Analisis Saham",
+      "brokerSummary": "Ringkasan Broker",
+      "tradingPlan": "Rencana Trading"
+    },
+    "tables": {
+      "brokerSummary": {
+        "broker": "Broker",
+        "totalBuy": "Total Beli",
+        "totalSell": "Total Jual",
+        "totalBuyLot": "Total Lot Beli",
+        "totalSellValue": "Total Nilai Jual",
+        "confidenceACR": "Kepercayaan ACR%"
+      },
+      "brokerAnalysis": {
+        "broker": "Broker",
+        "buyFreq": "Freq Beli",
+        "buyVol": "Vol Beli",
+        "buyAvg": "Avg Beli",
+        "buyPercent": "Beli %",
+        "sellFreq": "Freq Jual",
+        "sellVol": "Vol Jual",
+        "sellAvg": "Avg Jual",
+        "sellPercent": "Jual %",
+        "netVol": "Vol Net",
+        "netVal": "Nilai Net",
+        "buyVolume": "Volume Beli",
+        "sellVolume": "Volume Jual",
+        "netVolume": "Volume Net",
+        "buyValue": "Nilai Beli",
+        "sellValue": "Nilai Jual",
+        "netValue": "Nilai Net",
+        "frequency": "Frekuensi",
+        "avgPrice": "Harga Rata-rata",
+        "totalTransactions": "Total Transaksi"
+      },
+      "stockAnalysis": {
+        "stock": "Saham",
+        "price": "Harga",
+        "change": "Perubahan",
+        "volume": "Volume",
+        "value": "Nilai",
+        "frequency": "Frekuensi",
+        "brokerCount": "Jumlah Broker",
+        "netFlow": "Aliran Net",
+        "netBuy": "Net Buy",
+        "avgPrice": "Harga Rata-rata",
+        "avg": "Rata-rata"
+      },
+      "brokerSummary": {
+        "broker": "Broker",
+        "totalBuy": "Total Beli",
+        "totalSell": "Total Jual",
+        "netPosition": "Posisi Net",
+        "marketShare": "Pangsa Pasar",
+        "activeStocks": "Saham Aktif",
+        "avgTransaction": "Rata-rata Transaksi"
+      },
+      "tradingPlan": {
+        "stock": "Saham",
+        "action": "Aksi",
+        "entryPrice": "Harga Masuk",
+        "targetPrice": "Harga Target",
+        "stopLoss": "Stop Loss",
+        "confidence": "Kepercayaan",
+        "rationale": "Rationale"
+      }
+    },
+    "buttons": {
+      "refresh": "Segarkan Data",
+      "export": "Ekspor Data",
+      "viewDetails": "Lihat Detail",
+      "applyFilter": "Terapkan Filter",
+      "resetFilter": "Reset Filter"
+    },
+    "placeholders": {
+      "searchBroker": "Cari broker...",
+      "searchStock": "Cari saham...",
+      "selectDate": "Pilih tanggal"
+    },
+    "loading": {
+      "brokerData": "Memuat data broker...",
+      "stockData": "Memuat data saham...",
+      "summaryData": "Memuat data ringkasan..."
+    },
+    "error": {
+      "failedToLoad": "Gagal memuat data",
+      "noDataAvailable": "Tidak ada data tersedia",
+      "networkError": "Kesalahan jaringan",
+      "tryAgain": "Coba lagi"
+    },
+    "info": {
+      "lastUpdated": "Terakhir diperbarui",
+      "dataSource": "Sumber data",
+      "realTime": "Real-time",
+      "daily": "Harian",
+      "weekly": "Mingguan"
+    },
+    "stats": {
+      "totalBrokers": "Total Broker",
+      "totalStocks": "Total Saham",
+      "totalVolume": "Total Volume",
+      "totalValue": "Total Nilai",
+      "avgTransaction": "Rata-rata Transaksi"
+    },
+    "filters": {
+      "dateRange": "Rentang Tanggal",
+      "brokerType": "Tipe Broker",
+      "minVolume": "Volume Minimum",
+      "minValue": "Nilai Minimum",
+      "sortBy": "Urutkan Berdasarkan"
+    },
+    "sortOptions": {
+      "volume": "Volume",
+      "value": "Nilai",
+      "frequency": "Frekuensi",
+      "netFlow": "Aliran Net",
+      "marketShare": "Pangsa Pasar"
+    },
+    "confidence": {
+      "high": "Tinggi",
+      "medium": "Sedang",
+      "low": "Rendah"
+    },
+    "actions": {
+      "buy": "Beli",
+      "sell": "Jual",
+      "hold": "Tahan"
+    },
+    "brokerData": "Data Broker",
+    "selectBroker": "Pilih Broker untuk Melihat Data",
+    "chooseBroker": "Pilih broker...",
+    "noBrokerData": "Silakan pilih broker untuk melihat data detail",
+    "bandarmologiTab": {
+      "title": "Analisis Bandarmologi",
+      "stockCode": "Kode Saham",
+      "period": "Periode",
+      "customRange": "Rentang Kustom",
+      "showData": "Tampilkan Data",
+      "table": "Tabel",
+      "chart": "Grafik",
+      "daily": "Harian",
+      "weekly": "Mingguan",
+      "monthly": "Bulanan",
+      "custom": "Kustom",
+      "days": "Hari",
+      "loading": "Memuat...",
+      "noData": "Klik 'Tampilkan Data' untuk memuat data analisis broker",
+      "netValueByBroker": "Nilai Net berdasarkan Broker",
+      "columns": {
+        "broker": "Broker",
+        "buyFreq": "Freq Beli",
+        "buyVol": "Vol Beli",
+        "buyAvg": "Avg Beli",
+        "buyPercent": "Beli %",
+        "sellFreq": "Freq Jual",
+        "sellVol": "Vol Jual",
+        "sellAvg": "Avg Jual",
+        "sellPercent": "Jual %",
+        "netVol": "Vol Net",
+        "netVal": "Nilai Net"
+      }
+    },
+    "views": {
+      "table": "Tampilan Tabel",
+      "detailedTable": "Tabel Detail"
+    },
+    "charts": {
+      "stock": "Grafik Saham",
+      "info": "Informasi Saham",
+      "netVolumeByBroker": "Net Volume per Broker"
+    },
+    "analysis": {
+      "netBuy": "Net Beli",
+      "netSell": "Net Jual",
+      "pbv": "PBV",
+      "bookValue": "Nilai Buku",
+      "npm": "NPM",
+      "topBuyer": "Broker Beli Teratas",
+      "topSeller": "Broker Jual Teratas",
+      "buyerCount": "Jumlah Net Buyer",
+      "summary": "Ringkasan Analisis"
+    },
+    "totals": {
+      "buyVol": "Total Volume Beli",
+      "sellVol": "Total Volume Jual",
+      "netBuyVol": "Total Net Volume Beli",
+      "netSellVol": "Total Net Volume Jual"
+    },
+    "broker": {
+      "select": "Pilih Broker untuk Lihat Data",
+      "analysis": "Analisis Kepemilikan Broker",
+      "selectPrompt": "Pilih broker untuk melihat saham yang mereka pegang",
+      "noHoldings": "Tidak Ada Data Kepemilikan",
+      "noBroker": "Tidak Ada Data Broker"
+    },
+    "messages": {
+      "noData": "Tidak Ada Data",
+      "selectStock": "Pilih saham dan klik",
+      "showData": "Tampilkan Data"
+    },
+    "title": "Bandarmologi",
+    "subtitle": "Dashboard Analisis Smart Broker",
+    "descriptions": {
+      "aboutBandarmologi": "Tentang Bandarmologi",
+      "aboutBandarmologiText": "Bandarmologi memberikan wawasan tentang aktivitas broker dan akumulasi saham.",
+      "analysisPeriod": "Periode Analisis",
+      "realTime": "Data Real-time",
+      "dataSource": "Sumber Data",
+      "dataSourceLink": "Data Bursa Efek Indonesia",
+      "dataSourceDesc": "Data bersumber dari catatan transaksi broker dan IDX."
+    },
+    "ui": {
+      "greenBars": "Batang hijau",
+      "redBars": "Batang merah",
+      "createdBy": "Dibuat oleh",
+      "part1": "Bagian 1:",
+      "selectBrokerToViewData": "Pilih Broker untuk Melihat Data",
+      "chooseBroker": "Pilih broker...",
+      "pleaseSelectBroker": "Silakan pilih broker untuk melihat data detail",
+      "brokerHoldingsAnalysis": "Analisis Kepemilikan Broker",
+      "selectBrokerToViewStocks": "Pilih broker untuk melihat saham yang mereka pegang",
+      "loadingBrokerHoldings": "Memuat kepemilikan broker...",
+      "switchToChartView": "Beralih ke Tampilan Chart",
+      "switchToTableView": "Beralih ke Tampilan Tabel",
+      "noHoldingsDataAvailable": "Tidak Ada Data Kepemilikan",
+      "noStocksHeldByBroker": "Tidak ada saham yang dipegang broker ini pada periode terpilih",
+      "debugInfo": "Info Debug:",
+      "tryDifferentBroker": "Coba pilih broker lain atau perpanjang periode",
+      "stock": "Saham",
+      "buyVol": "Vol Beli",
+      "sellVol": "Vol Jual",
+      "netVol": "Vol Net",
+      "netVal": "Nilai Net",
+      "holdingsChart": "Grafik Kepemilikan",
+      "greenBarsNetBuy": "Batang hijau = Net Beli, Batang merah = Net Jual",
+      "selectStock": "Pilih saham...",
+      "customDays": "Hari Kustom",
+      "showData": "Tampilkan Data",
+      "table": "Tabel",
+      "chart": "Grafik",
+      "loadingBrokerData": "Memuat data broker...",
+      "noBrokerDataAvailable": "Tidak Ada Data Broker",
+      "noBrokerDataForStock": "Tidak ada data broker untuk saham {{stock}} pada periode ini",
+      "tryDifferentStock": "Coba pilih saham lain atau perpanjang rentang tanggal",
+      "freqBuy": "Freq Beli",
+      "volBuy": "Vol Beli",
+      "avgBuy": "Avg Beli",
+      "buyPercent": "Beli %",
+      "freqSell": "Freq Jual",
+      "volSell": "Vol Jual",
+      "avgSell": "Avg Jual",
+      "sellPercent": "Jual %",
+      "netVolume": "Vol Net",
+      "netValue": "Nilai Net",
+      "netVolumeByBroker": "Volume Net per Broker",
+      "noDataAvailable": "Tidak Ada Data",
+      "selectStockAndShowData": "Pilih saham dan klik \"Tampilkan Data\" untuk memuat analisis broker",
+      "tableView": "Tampilan Tabel",
+      "detailedTableView": "Tabel Detail",
+      "detailedBrokerAnalysis": "Analisis Broker Detail",
+      "bandarmologiTitle": "Bandarmologi",
+      "daysUntil": "hari hingga",
+      "part1": "Bagian 1",
+      "createdByBisnisIT": "Dibuat oleh bisnis-it.com/saham"
+    }
+  },
+  "plans": {
+    "title": "📦 Paket Langganan",
+    "subtitle": "Pilih paket yang paling sesuai dengan kebutuhan trading Anda",
+    "categories": {
+      "basic": {
+        "name": "Basic",
+        "description": "Cocok untuk pemula yang ingin mencoba analisa AI.",
+        "perks": [
+          "Akses AI Prediksi Saham IDX & US",
+          "Masuk group umum myTradeX"
+        ]
+      },
+      "advance": {
+        "name": "Advance",
+        "description": "Untuk trader serius yang butuh layanan lengkap + mentoring.",
+        "perks": [
+          "Semua fitur myTradeX (AI, Sentimen, Bandarmology, Screener, dsb.)",
+          "Masuk group umum myTradeX",
+          "Trading bareng langsung dengan ahli",
+          "Group VIP + konsultasi langsung AI & ML",
+          "Bersama membangun strategi trading otomatis (bot)"
+        ],
+        "popular": "Paling Populer"
+      }
+    },
+    "durationPlans": {
+      "title": "Paket Berdasarkan Quota",
+      "noPlans": "Tidak ada paket tersedia saat ini.",
+      "months": "bulan",
+      "discount": "Diskon {{percentage}}%",
+      "quota": "Kuota API: {{count}} panggilan",
+      "selectPlan": "Pilih Paket"
+    },
+    "investorClub": {
+      "title": "💎 Investor Club",
+      "description": "Eksklusif untuk pemilik dana <span class=\"font-semibold\">≥ Rp1 Miliar</span>. Bergabung dalam <span class=\"font-semibold\">Investor Club myTradeX</span> untuk membangun <span class=\"text-green-400\">Hedge Fund</span> ala Medallion Fund. Bersama kita mendirikan perusahaan efek & mengelola bisnis offline maupun online secara profesional.",
+      "benefits": {
+        "title": "Keuntungan Investor Club",
+        "list": [
+          "🏦 Kerjasama membangun perusahaan Hedge Fund",
+          "📑 Persiapan pendirian Perusahaan Efek",
+          "🌍 Bisnis Online & Offline untuk pengelolaan dana"
+        ],
+        "list2": [
+          "🤝 Partnership eksklusif dengan tim Quant",
+          "🔒 Akses Prioritas & Governance Transparan",
+          "🚀 Peluang profit skala institusi"
+        ]
+      },
+      "profile": {
+        "title": "👤 Profil & Portofolio Projek",
+        "description": "Profil dan Portofolio dari Developer platform ini memiliki lebih dari <span class=\"font-semibold text-white\">20 tahun</span> di bidang <span class=\"font-semibold text-white\">Financial</span> dan <span class=\"font-semibold text-white\">IT</span>.",
+        "experience": [
+          "Pengalaman di <span class=\"text-white font-medium\">Perusahaan Efek</span> Indonesia.",
+          "Pengalaman di IT Banking.",
+          "Memiliki Sertifikasi TOGAF, BSMR dan WPPE.",
+          "Projek <a href=\"https://mytriv.com\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"text-green-400 underline\">mytriv.com</a> – Merch, aggregator & OTA global.",
+          "Projek <a href=\"https://mytriv.net\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"text-green-400 underline\">mytriv.net</a> – IT & developer ERP.",
+          "Projek <a href=\"https://hepsia.biz\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"text-green-400 underline\">hepsia.biz</a> – Cloud Hosting & Domain.",
+          "Projek <a href=\"https://bisnis-it.com\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"text-green-400 underline\">bisnis-it.com</a> – Blog Edukasi IT dan Bisnis."
+        ]
+      },
+      "cta": "Bergabung Investor Club 💎",
+      "note": "*Undangan khusus – hubungi tim untuk detail kerjasama."
+    },
+    "buttons": {
+      "selectPlan": "Pilih Paket",
+      "processing": "Memproses..."
+    }
+  },
+  "footerPages": {
+    "about": {
+      "title": "Tentang Kami",
+      "content": "Halaman Tentang Kami. Isi konten sesuai dengan profil platform myTradeX."
+    },
+    "faq": {
+      "title": "FAQ",
+      "content": "Halaman Pertanyaan yang Sering Diajukan. Tambahkan Q&A yang relevan di sini."
+    },
+    "blog": {
+      "title": "Blog",
+      "content": "Halaman Blog. Bagikan wawasan, tutorial, dan analisis pasar."
+    },
+    "privacy": {
+      "title": "Kebijakan Privasi",
+      "content": "Halaman Kebijakan Privasi. Detail bagaimana data pengguna ditangani dan dilindungi."
+    },
+    "terms": {
+      "title": "Syarat & Ketentuan",
+      "content": "Halaman Syarat & Ketentuan. Ketentuan hukum dan perjanjian layanan."
+    }
+  }
+}

@@ -1,0 +1,6 @@
+UPDATE usa_data u
+SET prev_close = p.close
+FROM usa_data p
+WHERE u.symbol = p.symbol
+  AND p.trade_date = (SELECT MAX(trade_date) FROM usa_data WHERE trade_date < u.trade_date AND symbol = u.symbol)
+  AND u.trade_date IN ('2025-08-22', '2025-08-25');

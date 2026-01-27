@@ -1,0 +1,93 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "myTradeX" [ref=e6] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e7]:
+        - button "Switch to dark mode" [ref=e8] [cursor=pointer]:
+          - img [ref=e11] [cursor=pointer]
+        - button "EN" [ref=e18] [cursor=pointer]:
+          - img [ref=e19] [cursor=pointer]
+          - generic [ref=e21] [cursor=pointer]: EN
+        - button "Dashboard" [ref=e23] [cursor=pointer]:
+          - img [ref=e24] [cursor=pointer]
+          - generic [ref=e29] [cursor=pointer]: Dashboard
+          - img [ref=e30] [cursor=pointer]
+        - button "Market Data" [ref=e33] [cursor=pointer]:
+          - img [ref=e34] [cursor=pointer]
+          - generic [ref=e38] [cursor=pointer]: Market Data
+          - img [ref=e39] [cursor=pointer]
+        - button "Analysis" [ref=e42] [cursor=pointer]:
+          - img [ref=e43] [cursor=pointer]
+          - generic [ref=e47] [cursor=pointer]: Analysis
+          - img [ref=e48] [cursor=pointer]
+        - button "Advanced" [ref=e51] [cursor=pointer]:
+          - img [ref=e52] [cursor=pointer]
+          - generic [ref=e54] [cursor=pointer]: Advanced
+          - img [ref=e55] [cursor=pointer]
+        - button "Trading" [ref=e58] [cursor=pointer]:
+          - img [ref=e59] [cursor=pointer]
+          - generic [ref=e62] [cursor=pointer]: Trading
+          - img [ref=e63] [cursor=pointer]
+        - button "Community" [ref=e66] [cursor=pointer]:
+          - img [ref=e67] [cursor=pointer]
+          - generic [ref=e72] [cursor=pointer]: Community
+          - img [ref=e73] [cursor=pointer]
+        - link "Plans" [ref=e75] [cursor=pointer]:
+          - /url: /plans
+        - button "Logout" [ref=e76] [cursor=pointer]
+  - main [ref=e77]:
+    - generic [ref=e79]:
+      - generic [ref=e80]:
+        - heading "OpenBB Dashboard" [level=1] [ref=e81]
+        - paragraph [ref=e82]: Real-time market data and financial analytics
+      - heading "Market Overview" [level=2] [ref=e85]
+      - generic [ref=e91]:
+        - heading "Stock Prices" [level=2] [ref=e93]
+        - generic [ref=e96]:
+          - heading "Fundamentals" [level=2] [ref=e97]
+          - combobox [ref=e98]:
+            - option "BBCA - Bank Central Asia" [selected]
+            - option "TLKM - Telekomunikasi Indonesia"
+            - option "ASII - Astra International"
+            - option "BMRI - Bank Mandiri"
+            - option "BBNI - Bank Negara Indonesia"
+            - option "AAPL - Apple Inc."
+            - option "MSFT - Microsoft Corporation"
+            - option "GOOGL - Alphabet Inc."
+      - generic [ref=e101]:
+        - heading "Technical Chart" [level=2] [ref=e102]
+        - generic [ref=e103]:
+          - combobox [ref=e104]:
+            - option "BBCA - Bank Central Asia" [selected]
+            - option "TLKM - Telekomunikasi Indonesia"
+            - option "ASII - Astra International"
+            - option "BMRI - Bank Mandiri"
+            - option "BBNI - Bank Negara Indonesia"
+            - option "AAPL - Apple Inc."
+            - option "MSFT - Microsoft Corporation"
+            - option "GOOGL - Alphabet Inc."
+          - combobox [ref=e105]:
+            - option "7 Days"
+            - option "30 Days" [selected]
+            - option "90 Days"
+            - option "180 Days"
+      - generic [ref=e108]:
+        - heading "Market Analytics" [level=2] [ref=e109]
+        - combobox [ref=e111]:
+          - option "BBCA - Bank Central Asia" [selected]
+          - option "TLKM - Telekomunikasi Indonesia"
+          - option "ASII - Astra International"
+          - option "BMRI - Bank Mandiri"
+          - option "BBNI - Bank Negara Indonesia"
+          - option "AAPL - Apple Inc."
+          - option "MSFT - Microsoft Corporation"
+          - option "GOOGL - Alphabet Inc."
+  - contentinfo [ref=e113]:
+    - generic [ref=e114]:
+      - generic [ref=e115]: © 2025 myTradeX
+      - generic [ref=e116]: Made for investors — AI Trading Platform Indonesia
+```

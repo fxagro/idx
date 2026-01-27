@@ -1,0 +1,138 @@
+{
+  "users": [
+    {
+      "id": "u_1756629508448",
+      "name": "agus",
+      "email": "richman",
+      "phone": "08122001793",
+      "password": "$2a$10$9G8iRf2tyonJf7xnli1ypeBoIk98QWGzfo.OusMsdDNKfEf/Ja/Eu",
+      "subscription": {
+        "active": false,
+        "planId": null,
+        "expireAt": null,
+        "quotaUsed": 0,
+        "quotaLimit": 0
+      },
+      "role": "user",
+      "createdAt": "2025-08-31T08:38:28.448Z"
+    },
+    {
+      "id": "u_1756643684232",
+      "name": "agus",
+      "email": "hepsiaorg@gmail.com",
+      "phone": "0980988098",
+      "password": "$2a$10$FD9aN7Z7XqGnHBcrrGPGPOAK2FgmZTYP7jwhL6c06z8C/79Bfg5Ce",
+      "subscription": {
+        "active": false,
+        "planId": null,
+        "expireAt": null,
+        "quotaUsed": 0,
+        "quotaLimit": 0
+      },
+      "role": "user",
+      "createdAt": "2025-08-31T12:34:44.232Z"
+    }
+  ],
+  "transactions": [],
+  "plans": [
+    {
+      "id": "plan_1m",
+      "name": "1 Bulan",
+      "months": 1,
+      "price": 50000,
+      "discountPct": 0,
+      "quota": 100
+    },
+    {
+      "id": "plan_3m",
+      "name": "3 Bulan",
+      "months": 3,
+      "price": 135000,
+      "discountPct": 10,
+      "quota": 350
+    },
+    {
+      "id": "plan_6m",
+      "name": "6 Bulan",
+      "months": 6,
+      "price": 240000,
+      "discountPct": 20,
+      "quota": 750
+    },
+    {
+      "id": "plan_12m",
+      "name": "12 Bulan",
+      "months": 12,
+      "price": 420000,
+      "discountPct": 30,
+      "quota": 1600
+    },
+    {
+      "users": [
+        {
+          "id": "u1",
+          "username": "demo_user",
+          "name": "Demo User",
+          "email": "demo@example.com",
+          "role": "user",
+          "subscription": {
+            "active": true,
+            "planId": "1bulan",
+            "expireAt": "2025-12-31T23:59:59Z",
+            "quotaUsed": 5,
+            "quotaLimit": 100
+          }
+        }
+      ],
+      "transactions": [
+        {
+          "id": "t1",
+          "userId": "u1",
+          "planId": "1bulan",
+          "amount": 50000,
+          "status": "paid",
+          "proofPath": "/uploads/proof1.png",
+          "createdAt": "2025-08-31T07:00:00Z"
+        },
+        {
+          "id": "t2",
+          "userId": "u1",
+          "planId": "3bulan",
+          "amount": 135000,
+          "status": "pending",
+          "createdAt": "2025-08-30T07:00:00Z"
+        },
+        {
+  "users": [
+      {
+        "id": 1,
+        "username": "demo",
+        "name": "Demo User",
+        "email": "demo@example.com",
+        "role": "member",
+        "subscription": {
+        "active": true,
+        "planId": "basic",
+        "expireAt": "2025-12-31T23:59:59Z",
+        "quotaUsed": 2,
+        "quotaLimit": 10
+        }
+      }
+  ],
+  "transactions": [
+    {
+      "id": 1,
+      "userId": 1,
+      "planId": "basic",
+      "amount": 50000,
+      "status": "paid",
+      "createdAt": "2025-08-01T12:00:00Z",
+      "proofPath": ""
+    }
+  ]
+}
+
+      ]
+    }
+  ]
+}

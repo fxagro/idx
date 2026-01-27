@@ -1,0 +1,44 @@
+{
+  "name": "ai-saham-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "dev": "node scripts/startup.js",
+    "dev:legacy": "nodemon server.js",
+    "start": "node server.js",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^2.2.0",
+    "chart.js": "^4.5.0",
+    "chartjs-node-canvas": "^5.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "joi": "^18.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "lowdb": "^7.0.1",
+    "morgan": "^1.10.1",
+    "multer": "^1.4.5-lts.1",
+    "nanoid": "^5.0.7",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^7.0.7",
+    "openai": "^4.20.0",
+    "pg": "^8.16.3",
+    "redis": "^5.8.3",
+    "socket.io": "^4.8.1",
+    "uuid": "^9.0.1",
+    "winston": "^3.17.0",
+    "yfinance": "^0.0.6"
+  },
+  "devDependencies": {
+    "jest": "^30.1.3",
+    "nodemon": "^3.1.10",
+    "supertest": "^7.1.4"
+  }
+}

@@ -1,0 +1,213 @@
+{
+  "bandarmologi": {
+    "title": "Bandarmologi",
+    "subtitle": "Dashboard Analisis Smart Broker",
+    "analysis": "Analisis",
+    "summary": "Ringkasan",
+    "tradingPlan": "Rencana Trading",
+    "settings": "Pengaturan",
+    "brokerData": "Data Broker",
+    "brokerHoldings": "Holdings Broker",
+    "stockSymbol": "Kode Saham",
+    "date": "Tanggal",
+    "days": "Hari",
+    "analyzing": "Menganalisis...",
+    "analyze": "Analisis",
+    "errors": {
+      "apiError": "Error memuat data. Silakan coba lagi."
+    },
+    "buttons": {
+      "oldView": "Tampilan Lama",
+      "newErgonomicView": "Tampilan Ergonomis Baru"
+    },
+    "descriptions": {
+      "aboutBandarmologi": "Tentang Bandarmologi",
+      "aboutBandarmologiText": "Bandarmologi memberikan wawasan tentang aktivitas broker dan akumulasi saham.",
+      "analysisPeriod": "Periode Analisis",
+      "realTime": "Data Real-time",
+      "dataSource": "Sumber Data",
+      "dataSourceLink": "Data Bursa Efek Indonesia",
+      "dataSourceDesc": "Data bersumber dari catatan transaksi broker dan IDX."
+    },
+    "brokerData": "Data Broker",
+    "messages": {
+      "noBrokers": "Tidak ada broker tersedia",
+      "selectStock": "Silakan pilih saham terlebih dahulu"
+    },
+    "ui": {
+      "selectBrokerToViewData": "Pilih Broker untuk Lihat Data",
+      "chooseBroker": "Pilih broker...",
+      "pleaseSelectBroker": "Silakan pilih broker untuk melihat data",
+      "selectStock": "Pilih Saham",
+      "selectStockAndShowData": "Silakan pilih saham dan klik Tampilkan Data",
+      "noDataAvailable": "Tidak ada data tersedia",
+      "loadingBrokerData": "Memuat data broker...",
+      "loadingBrokerHoldings": "Memuat holdings broker...",
+      "noBrokerDataAvailable": "Tidak ada data broker tersedia",
+      "noBrokerDataForStock": "Tidak ada data broker untuk {{stock}}",
+      "noHoldingsDataAvailable": "Tidak ada data holdings tersedia",
+      "noStocksHeldByBroker": "Tidak ada saham yang dimiliki broker ini",
+      "debugInfo": "Informasi Debug",
+      "tryDifferentBroker": "Coba pilih broker yang berbeda",
+      "tryDifferentStock": "Coba pilih saham yang berbeda",
+      "stock": "Saham",
+      "buyVol": "Vol Beli",
+      "sellVol": "Vol Jual",
+      "netVol": "Net Vol",
+      "netVal": "Net Val",
+      "freqBuy": "Freq Beli",
+      "freqSell": "Freq Jual",
+      "avgBuy": "Avg Beli",
+      "avgSell": "Avg Jual",
+      "buyPercent": "Beli %",
+      "sellPercent": "Jual %",
+      "netVolume": "Volume Net",
+      "netValue": "Nilai Net",
+      "table": "Tabel",
+      "chart": "Grafik",
+      "showData": "Tampilkan Data",
+      "customDays": "Hari Kustom",
+      "tableView": "Tampilan Tabel",
+      "detailedTableView": "Tampilan Tabel Detail",
+      "detailedBrokerAnalysis": "Analisis Broker Detail",
+      "holdingsChart": "Grafik Holdings",
+      "greenBarsNetBuy": "Batang hijau menunjukkan pembelian bersih, batang merah menunjukkan penjualan bersih",
+      "brokerHoldingsAnalysis": "Analisis Holdings Broker",
+      "selectBrokerToViewStocks": "Pilih broker untuk melihat holdings saham mereka",
+      "switchToChartView": "Beralih ke Tampilan Grafik",
+      "switchToTableView": "Beralih ke Tampilan Tabel",
+      "createdByBisnisIT": "Dibuat oleh BisnisIT",
+      "daysUntil": "hari hingga",
+      "part1": "Bagian 1",
+      "bandarmologiTitle": "Analisis Bandarmologi",
+      "submitTradingPlan": "Kirim Rencana Trading",
+      "buy": "Beli",
+      "sell": "Jual",
+      "topStock": "Saham Teratas",
+      "topBroker": "Ringkasan Broker",
+      "totals": {
+        "buyVol": "Total Volume Beli",
+        "sellVol": "Total Volume Jual",
+        "netBuyVol": "Volume Beli Bersih",
+        "netSellVol": "Volume Jual Bersih"
+      },
+      "analysis": {
+        "topBuyer": "Pembeli Teratas",
+        "topSeller": "Penjual Teratas",
+        "buyerCount": "Jumlah Pembeli Bersih",
+        "summary": "Ringkasan Analisis"
+      },
+      "charts": {
+        "stock": "Grafik Saham",
+        "info": "Informasi Saham"
+      }
+    },
+    "bandarmologiTab": {
+      "title": "Analisis Bandarmologi",
+      "stockCode": "Kode Saham",
+      "period": "Periode",
+      "columns": {
+        "broker": "Broker",
+        "buyFreq": "Freq Beli",
+        "buyVol": "Vol Beli",
+        "buyAvg": "Avg Beli",
+        "buyPercent": "Beli %",
+        "sellFreq": "Freq Jual",
+        "sellVol": "Vol Jual",
+        "sellAvg": "Avg Jual",
+        "sellPercent": "Jual %",
+        "netVol": "Net Vol",
+        "netVal": "Net Val"
+      }
+    },
+    "tables": {
+      "brokerAnalysis": {
+        "broker": "Broker",
+        "buyFreq": "Frekuensi Beli",
+        "buyVol": "Volume Beli",
+        "avgPrice": "Rata Harga Beli",
+        "buyPercent": "Persen Beli",
+        "sellFreq": "Frekuensi Jual",
+        "sellVol": "Volume Jual",
+        "sellPercent": "Persen Jual",
+        "netVol": "Net Volume",
+        "netVal": "Nilai Bersih"
+      },
+      "stockAnalysis": {
+        "stock": "Saham",
+        "netFlow": "Net Beli",
+        "avgPrice": "RATA",
+        "value": "Nilai"
+      },
+      "brokerSummary": {
+        "broker": "Broker",
+        "totalBuy": "Lot",
+        "totalSell": "Nilai"
+      },
+      "tradingPlan": {
+        "stock": "Saham",
+        "netBuy": "Net Beli",
+        "value": "Nilai",
+        "confidence": "ACR%",
+        "entryPrice": "Harga Terakhir",
+        "stopLoss": "PBV",
+        "targetPrice": "Nilai Buku",
+        "rationale": "NPM%",
+        "tp5Percent": "TP5%",
+        "tp10Percent": "TP10%",
+        "tp20Percent": "TP20%",
+        "info": "Info"
+      }
+    },
+    "messages": {
+      "noData": "Tidak Ada Data"
+    },
+    "bigAcc": "Big ACC"
+  },
+  "charts": {
+    "stock": "Grafik Saham",
+    "info": "Informasi Saham",
+    "netVolumeByBroker": "Net Volume per Broker",
+    "realTimePrice": "Grafik Harga Real-time",
+    "candlestick": "Candlestick dengan Indikator",
+    "time": "Waktu",
+    "price": "Harga (Rp)",
+    "date": "Tanggal",
+    "volume": "Volume",
+    "shares": "saham",
+    "dataPoints": "titik data",
+    "market": "Pasar",
+    "liveUpdates": "Update Langsung",
+    "disconnected": "Terputus"
+  },
+  "analysis": {
+    "netBuy": "Net Beli",
+    "netSell": "Net Jual",
+    "candlestick": "Candlestick",
+    "sma20": "SMA 20",
+    "rsi14": "RSI 14",
+    "rsi": "RSI"
+  },
+  "ui": {
+    "greenBars": "Batang hijau",
+    "redBars": "Batang merah",
+    "createdBy": "Dibuat oleh",
+    "errorLoadingChart": "Error Memuat Grafik"
+  },
+  "messages": {
+    "noData": "Tidak Ada Data",
+    "loadingChart": "Memuat grafik...",
+    "noDataForSymbol": "Tidak ada data untuk"
+  },
+  "common": {
+    "loading": "Memuat...",
+    "error": "Error",
+    "noData": "Tidak Ada Data",
+    "previous": "Sebelumnya",
+    "next": "Selanjutnya",
+    "showing": "Menampilkan",
+    "to": "sampai",
+    "of": "dari",
+    "results": "hasil"
+  }
+}

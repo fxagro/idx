@@ -1,0 +1,442 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom animations and transitions */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* Animation utilities */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out;
+}
+
+.animate-pulse-slow {
+  animation: pulse 2s infinite;
+}
+
+/* Enhanced focus states for accessibility */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+}
+
+.focus-ring-inset {
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset;
+}
+
+/* Custom scrollbar styles */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Dark mode scrollbar styles */
+.dark .custom-scrollbar::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Glass morphism effect */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Enhanced button styles */
+.btn-primary {
+  @apply bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 focus:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+}
+
+.btn-secondary {
+  @apply bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 focus:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2;
+}
+
+.btn-success {
+  @apply bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 focus:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2;
+}
+
+.btn-danger {
+  @apply bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 focus:scale-105 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2;
+}
+
+/* Card hover effects */
+.card-hover {
+  @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+}
+
+/* Loading spinner */
+.spinner {
+  border: 2px solid #f3f4f6;
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  animation: spin 1s linear infinite;
+}
+
+/* Responsive text utilities */
+.text-responsive-sm {
+  @apply text-sm sm:text-base;
+}
+
+.text-responsive-base {
+  @apply text-base sm:text-lg;
+}
+
+.text-responsive-lg {
+  @apply text-lg sm:text-xl;
+}
+
+.text-responsive-xl {
+  @apply text-xl sm:text-2xl;
+}
+
+/* Spacing utilities based on 8px scale */
+.space-y-fluid > * + * {
+  margin-top: 1rem;
+}
+
+.space-y-fluid-sm > * + * {
+  margin-top: 0.5rem;
+}
+
+.space-y-fluid-lg > * + * {
+  margin-top: 1.5rem;
+}
+
+/* Chart container styles to prevent dimension issues */
+.chart-container {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.chart-container canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Enhanced modal backdrop */
+.modal-backdrop {
+  @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4;
+}
+
+/* Smooth transitions for all interactive elements */
+* {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Better focus indicators */
+*:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Improved selection */
+::selection {
+  background-color: #3b82f6;
+  color: white;
+}
+
+/* Custom utilities for common patterns */
+.text-balance {
+  text-wrap: balance;
+}
+
+.bg-grid {
+  background-image: radial-gradient(circle at 1px 1px, rgba(0,0,0,0.15) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+
+/* Dark mode grid */
+.dark .bg-grid {
+  background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.1) 1px, transparent 0);
+}
+
+/* ========================================
+   DARK MODE THEME STYLES
+   ======================================== */
+
+/* Base dark theme colors */
+.dark {
+  color-scheme: dark;
+}
+
+/* Dark mode backgrounds */
+.dark body {
+  @apply bg-slate-900 text-slate-100;
+}
+
+.dark .bg-white {
+  @apply bg-slate-800;
+}
+
+.dark .bg-gray-50 {
+  @apply bg-slate-900;
+}
+
+.dark .bg-gray-100 {
+  @apply bg-slate-800;
+}
+
+.dark .bg-gray-200 {
+  @apply bg-slate-700;
+}
+
+/* Dark mode text colors */
+.dark .text-gray-900 {
+  @apply text-slate-100;
+}
+
+.dark .text-gray-800 {
+  @apply text-slate-200;
+}
+
+.dark .text-gray-700 {
+  @apply text-slate-300;
+}
+
+.dark .text-gray-600 {
+  @apply text-slate-400;
+}
+
+.dark .text-gray-500 {
+  @apply text-slate-500;
+}
+
+/* Dark mode borders */
+.dark .border-gray-200 {
+  @apply border-slate-700;
+}
+
+.dark .border-gray-300 {
+  @apply border-slate-600;
+}
+
+/* Dark mode cards and containers */
+.dark .card-hover {
+  @apply bg-slate-800 border-slate-700;
+}
+
+.dark .card-hover:hover {
+  @apply bg-slate-700 shadow-xl shadow-slate-900/50;
+}
+
+/* Dark mode glass effect */
+.dark .glass {
+  background: rgba(30, 41, 59, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+/* Dark mode gradient text */
+.dark .gradient-text {
+  background: linear-gradient(135deg, #818cf8 0%, #a855f7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Dark mode buttons */
+.dark .btn-primary {
+  @apply bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500;
+}
+
+.dark .btn-secondary {
+  @apply bg-slate-700 text-slate-200 hover:bg-slate-600 focus:ring-slate-500;
+}
+
+.dark .btn-success {
+  @apply bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-500;
+}
+
+.dark .btn-danger {
+  @apply bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+}
+
+/* Dark mode focus states */
+.dark .focus-ring {
+  @apply focus:ring-indigo-500 focus:ring-offset-slate-800;
+}
+
+.dark .focus-ring-inset {
+  @apply focus:ring-indigo-500 focus:ring-inset focus:ring-offset-slate-800;
+}
+
+/* Dark mode selection */
+.dark ::selection {
+  background-color: #4f46e5;
+  color: white;
+}
+
+/* Dark mode modal backdrop */
+.dark .modal-backdrop {
+  @apply bg-slate-900 bg-opacity-80;
+}
+
+/* Enhanced dark mode animations */
+.dark * {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+/* Dark mode chart containers */
+.dark .chart-container {
+  @apply bg-slate-800;
+}
+
+/* Dark mode loading spinner */
+.dark .spinner {
+  border-color: #334155;
+  border-top-color: #6366f1;
+}
+
+/* Dark mode enhanced focus indicators */
+.dark *:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+/* Dark mode input styles */
+.dark input, .dark textarea, .dark select {
+  @apply bg-slate-800 border-slate-600 text-slate-100;
+}
+
+.dark input:focus, .dark textarea:focus, .dark select:focus {
+  @apply border-indigo-500 ring-indigo-500;
+}
+
+/* Dark mode table styles */
+.dark table {
+  @apply bg-slate-800;
+}
+
+.dark th {
+  @apply bg-slate-700 text-slate-200;
+}
+
+.dark td {
+  @apply border-slate-700;
+}
+
+/* Dark mode navigation */
+.dark nav {
+  @apply bg-slate-800 border-slate-700;
+}
+
+/* Dark mode header */
+.dark header {
+  @apply bg-slate-800 border-slate-700 shadow-lg;
+}
+
+/* Dark mode footer */
+.dark footer {
+  @apply bg-slate-800 border-slate-700;
+}
+
+/* Dark mode links */
+.dark a {
+  @apply text-indigo-400 hover:text-indigo-300;
+}
+
+/* Dark mode code blocks */
+.dark pre, .dark code {
+  @apply bg-slate-800 text-slate-100;
+}
+
+/* Dark mode enhanced shadows - using custom classes instead */
+.dark-shadow {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.8);
+}
+
+.dark-shadow-md {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.8), 0 2px 4px -2px rgba(0, 0, 0, 0.8);
+}
+
+.dark-shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.8), 0 4px 6px -4px rgba(0, 0, 0, 0.8);
+}
+
+.dark-shadow-xl {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.8), 0 8px 10px -6px rgba(0, 0, 0, 0.8);
+}

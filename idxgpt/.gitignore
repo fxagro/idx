@@ -1,0 +1,135 @@
+# ==============================================
+# 🌐 GLOBAL IGNORE RULES
+# ==============================================
+
+# Ignore everything by default
+*
+
+# ==============================================
+# ✅ KEEP CORE DIRECTORIES
+# ==============================================
+!.gitignore
+!/bot/
+!/client/
+!/server/
+!/tests/
+!/scripts/
+
+# Keep contents inside them
+!/bot/**
+!/client/**
+!/server/**
+!/tests/**
+!/scripts/**
+
+# ==============================================
+# 🐍 PYTHON BOT SECTION
+# ==============================================
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/*.pkl
+**/*.db
+**/*.sqlite*
+**/.venv/
+**/env/
+**/venv/
+**/.env
+**/.env.*
+**/log/
+**/logs/
+**/backup_*/
+**/debug*/
+
+# ==============================================
+# ⚙️ NODE / FRONTEND SECTION (React / Vite / Next)
+# ==============================================
+**/node_modules/
+**/dist/
+**/build/
+**/.next/
+**/.cache/
+**/.tmp/
+**/.parcel-cache/
+**/coverage/
+**/yarn-error.log
+**/npm-debug.log
+**/pnpm-debug.log
+**/vite.config.ts.timestamp*
+**/vite.config.js.timestamp*
+**/package-lock.json
+
+# ==============================================
+# ⚡ SERVER (Node.js / Express)
+# ==============================================
+**/*.log
+**/*.pid
+**/*.seed
+**/*.key
+**/*.pem
+**/*.crt
+**/*.csr
+**/secrets/
+**/certs/
+
+# ==============================================
+# 🧪 TESTS & TEMP FILES
+# ==============================================
+**/temp/
+**/tmp/
+**/sandbox/
+**/drafts/
+**/notepad/
+**/*.bak
+**/*.old
+**/*.tmp
+**/*.tar*
+**/*.zip
+**/*.7z
+**/*.gz
+**/*.rar
+
+# ==============================================
+# 🧱 OS & TOOLING FILES
+# ==============================================
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ==============================================
+# 🧰 DATABASES, EXECUTABLES, BINARIES
+# ==============================================
+**/*.db
+**/*.sqlite*
+**/*.exe
+**/*.dll
+**/*.bin
+**/*.so
+**/*.o
+**/*.a
+
+# ==============================================
+# 🔒 SECURITY
+# ==============================================
+**/config_secure.py
+**/secrets.yaml
+**/secrets.json
+**/credentials.json
+**/private_key.pem
+**/id_rsa
+**/id_rsa.pub
+
+# ==============================================
+# 📦 BACKUP & ARCHIVE
+# ==============================================
+backup*/
+quick_backup_*/
+**/archive_*/
+**/backup.sh
+**/restore.sh
+**/rollback.sh

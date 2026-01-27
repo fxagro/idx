@@ -1,0 +1,213 @@
+{
+  "bandarmologi": {
+    "title": "Bandarmologi",
+    "subtitle": "Smart Broker Analysis Dashboard",
+    "analysis": "Analysis",
+    "summary": "Summary",
+    "tradingPlan": "Trading Plan",
+    "settings": "Settings",
+    "brokerData": "Broker Data",
+    "brokerHoldings": "Broker Holdings",
+    "stockSymbol": "Stock Symbol",
+    "date": "Date",
+    "days": "Days",
+    "analyzing": "Analyzing...",
+    "analyze": "Analyze",
+    "errors": {
+      "apiError": "Error loading data. Please try again."
+    },
+    "buttons": {
+      "oldView": "Old View",
+      "newErgonomicView": "New Ergonomic View"
+    },
+    "descriptions": {
+      "aboutBandarmologi": "About Bandarmologi",
+      "aboutBandarmologiText": "Bandarmologi provides insights into broker activity and stock accumulation.",
+      "analysisPeriod": "Analysis Period",
+      "realTime": "Real-time Data",
+      "dataSource": "Data Source",
+      "dataSourceLink": "IDX Stock Data",
+      "dataSourceDesc": "Data sourced from broker transaction records and IDX."
+    },
+    "brokerData": "Broker Data",
+    "messages": {
+      "noBrokers": "No brokers available",
+      "selectStock": "Please select a stock first"
+    },
+    "ui": {
+      "selectBrokerToViewData": "Select Broker to View Data",
+      "chooseBroker": "Choose a broker...",
+      "pleaseSelectBroker": "Please select a broker to view data",
+      "selectStock": "Select Stock",
+      "selectStockAndShowData": "Please select a stock and click Show Data",
+      "noDataAvailable": "No data available",
+      "loadingBrokerData": "Loading broker data...",
+      "loadingBrokerHoldings": "Loading broker holdings...",
+      "noBrokerDataAvailable": "No broker data available",
+      "noBrokerDataForStock": "No broker data available for {{stock}}",
+      "noHoldingsDataAvailable": "No holdings data available",
+      "noStocksHeldByBroker": "No stocks held by this broker",
+      "debugInfo": "Debug Information",
+      "tryDifferentBroker": "Try selecting a different broker",
+      "tryDifferentStock": "Try selecting a different stock",
+      "stock": "Stock",
+      "buyVol": "Buy Vol",
+      "sellVol": "Sell Vol",
+      "netVol": "Net Vol",
+      "netVal": "Net Val",
+      "freqBuy": "Buy Freq",
+      "freqSell": "Sell Freq",
+      "avgBuy": "Buy Avg",
+      "avgSell": "Sell Avg",
+      "buyPercent": "Buy %",
+      "sellPercent": "Sell %",
+      "netVolume": "Net Volume",
+      "netValue": "Net Value",
+      "table": "Table",
+      "chart": "Chart",
+      "showData": "Show Data",
+      "customDays": "Custom Days",
+      "tableView": "Table View",
+      "detailedTableView": "Detailed Table View",
+      "detailedBrokerAnalysis": "Detailed Broker Analysis",
+      "holdingsChart": "Holdings Chart",
+      "greenBarsNetBuy": "Green bars indicate net buying, red bars indicate net selling",
+      "brokerHoldingsAnalysis": "Broker Holdings Analysis",
+      "selectBrokerToViewStocks": "Select a broker to view their stock holdings",
+      "switchToChartView": "Switch to Chart View",
+      "switchToTableView": "Switch to Table View",
+      "createdByBisnisIT": "Created by BisnisIT",
+      "daysUntil": "days until",
+      "part1": "Part 1",
+      "bandarmologiTitle": "Bandarmologi Analysis",
+      "submitTradingPlan": "Submit Trading Plan",
+      "buy": "Buy",
+      "sell": "Sell",
+      "topStock": "Top Stock",
+      "topBroker": "Broker Summary",
+      "totals": {
+        "buyVol": "Total Buy Volume",
+        "sellVol": "Total Sell Volume",
+        "netBuyVol": "Net Buy Volume",
+        "netSellVol": "Net Sell Volume"
+      },
+      "analysis": {
+        "topBuyer": "Top Buyer",
+        "topSeller": "Top Seller",
+        "buyerCount": "Net Buyer Count",
+        "summary": "Analysis Summary"
+      },
+      "charts": {
+        "stock": "Stock Chart",
+        "info": "Stock Information"
+      }
+    },
+    "bandarmologiTab": {
+      "title": "Bandarmologi Analysis",
+      "stockCode": "Stock Code",
+      "period": "Period",
+      "columns": {
+        "broker": "Broker",
+        "buyFreq": "Buy Freq",
+        "buyVol": "Buy Vol",
+        "buyAvg": "Buy Avg",
+        "buyPercent": "Buy %",
+        "sellFreq": "Sell Freq",
+        "sellVol": "Sell Vol",
+        "sellAvg": "Sell Avg",
+        "sellPercent": "Sell %",
+        "netVol": "Net Vol",
+        "netVal": "Net Val"
+      }
+    },
+    "tables": {
+      "brokerAnalysis": {
+        "broker": "Broker",
+        "buyFreq": "Buy Freq",
+        "buyVol": "Buy Vol",
+        "avgPrice": "Buy Avg",
+        "buyPercent": "Buy %",
+        "sellFreq": "Sell Freq",
+        "sellVol": "Sell Vol",
+        "sellPercent": "Sell %",
+        "netVol": "Net Vol",
+        "netVal": "Net Val"
+      },
+      "stockAnalysis": {
+        "stock": "Stock",
+        "netFlow": "Net Buy",
+        "avgPrice": "AVG",
+        "value": "Value"
+      },
+      "brokerSummary": {
+        "broker": "Broker",
+        "totalBuy": "Lot",
+        "totalSell": "Value"
+      },
+      "tradingPlan": {
+        "stock": "Stock",
+        "netBuy": "Net Buy",
+        "value": "Value",
+        "confidence": "ACR%",
+        "entryPrice": "Last Price",
+        "stopLoss": "PBV",
+        "targetPrice": "Book Value",
+        "rationale": "NPM%",
+        "tp5Percent": "TP5%",
+        "tp10Percent": "TP10%",
+        "tp20Percent": "TP20%",
+        "info": "Info"
+      }
+    },
+    "messages": {
+      "noData": "No Data Available"
+    },
+    "bigAcc": "Big ACC"
+  },
+  "charts": {
+    "stock": "Stock Chart",
+    "info": "Stock Information",
+    "netVolumeByBroker": "Net Volume by Broker",
+    "realTimePrice": "Real-time Price Chart",
+    "candlestick": "Candlestick with Indicators",
+    "time": "Time",
+    "price": "Price (Rp)",
+    "date": "Date",
+    "volume": "Volume",
+    "shares": "shares",
+    "dataPoints": "data points",
+    "market": "Market",
+    "liveUpdates": "Live Updates",
+    "disconnected": "Disconnected"
+  },
+  "analysis": {
+    "netBuy": "Net Buy",
+    "netSell": "Net Sell",
+    "candlestick": "Candlestick",
+    "sma20": "SMA 20",
+    "rsi14": "RSI 14",
+    "rsi": "RSI"
+  },
+  "ui": {
+    "greenBars": "Green bars",
+    "redBars": "Red bars",
+    "createdBy": "Created by",
+    "errorLoadingChart": "Error Loading Chart"
+  },
+  "messages": {
+    "noData": "No Data Available",
+    "loadingChart": "Loading chart...",
+    "noDataForSymbol": "No data available for"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "noData": "No Data",
+    "previous": "Previous",
+    "next": "Next",
+    "showing": "Showing",
+    "to": "to",
+    "of": "of",
+    "results": "results"
+  }
+}

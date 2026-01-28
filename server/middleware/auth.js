@@ -25,26 +25,31 @@ async function authMiddleware(req, res, next) {
     console.log('✅ Token verified in middleware for user:', decoded.email);
 
     // Fetch user role from database
-    const pool = getPool();
-    const { rows } = await pool.query(
-      'SELECT id, email, role, subscription_expiry, api_usage, api_limit, ai_quota FROM users WHERE id = $1',
-      [decoded.id]
-    );
+    try {
+      const pool = getPool();
+      const { rows } = await pool.query(
+        'SELECT id, email, role, subscription_expiry, api_usage, api_limit, ai_quota FROM users WHERE id = $1',
+        [decoded.id]
+      );
 
-    if (rows.length === 0) {
-      return res.status(401).json({ error: "User not found" });
+      if (rows.length === 0) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      const user = rows[0];
+      req.user = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        subscription_expiry: user.subscription_expiry,
+        api_usage: user.api_usage,
+        api_limit: user.api_limit,
+        ai_quota: user.ai_quota
+      };
+    } catch (dbError) {
+      console.error("Database error in auth middleware:", dbError.message);
+      return res.status(500).json({ error: "Database error", message: "Failed to verify user" });
     }
-
-    const user = rows[0];
-    req.user = {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      subscription_expiry: user.subscription_expiry,
-      api_usage: user.api_usage,
-      api_limit: user.api_limit,
-      ai_quota: user.ai_quota
-    };
 
     next();
   } catch (err) {

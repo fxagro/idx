@@ -1,10 +1,67 @@
 const { getPool } = require('../config/db');
 
+// Helper function to safely query database with fallback
+async function safeQuery(pool, query, params, fallback = []) {
+  try {
+    const result = await pool.query(query, params);
+    return result;
+  } catch (error) {
+    // Check if error is due to missing table
+    if (error.code === '42P01') { // undefined_table
+      console.warn(`[Dashboard] Table not found for query, returning fallback data`);
+      return { rows: fallback };
+    }
+    // Check if error is due to database not existing or connection issues
+    if (error.code === '3D000' || error.code === 'ECONNREFUSED' || error.code === '28P01') {
+      console.warn(`[Dashboard] Database connection error (${error.code}), returning fallback data`);
+      return { rows: fallback };
+    }
+    throw error;
+  }
+}
+
+// Fallback data when database is not available
+const getFallbackDashboardData = () => {
+  return {
+    portfolio: {
+      stocks: [],
+      summary: {
+        total_value: 0,
+        total_investment: 0,
+        total_gain_loss: 0,
+        total_gain_loss_percent: 0,
+        top_performers: []
+      }
+    },
+    watchlist: [],
+    transactions: [],
+    market_data: {
+      indices: [
+        { symbol: 'IHSG', price: 7200, change: 25, change_percent: 0.35 },
+        { symbol: 'LQ45', price: 980, change: 5, change_percent: 0.51 }
+      ],
+      trending: [],
+      ihsg_chart: []
+    },
+    ai_quota: {
+      remaining: 10,
+      used: 0
+    }
+  };
+};
+
 // Get comprehensive dashboard summary for a user
 const getDashboardSummary = async (userId) => {
   try {
     console.log(`[Dashboard] Fetching dashboard summary for user ${userId}`);
-    const pool = getPool();
+    let pool;
+    try {
+      pool = getPool();
+    } catch (dbError) {
+      console.warn(`[Dashboard] Failed to get database pool: ${dbError.message}`);
+      // Return fallback data when database is not available
+      return getFallbackDashboardData();
+    }
 
     // Get portfolio data with current prices
     const portfolioQuery = `
@@ -25,7 +82,7 @@ const getDashboardSummary = async (userId) => {
       ORDER BY vp.updated_at DESC
     `;
 
-    const portfolioResult = await pool.query(portfolioQuery, [userId]);
+    const portfolioResult = await safeQuery(pool, portfolioQuery, [userId]);
     const portfolio = portfolioResult.rows;
 
     // Calculate portfolio metrics
@@ -82,7 +139,7 @@ const getDashboardSummary = async (userId) => {
       ORDER BY uw.added_at DESC
     `;
 
-    const watchlistResult = await pool.query(watchlistQuery, [userId]);
+    const watchlistResult = await safeQuery(pool, watchlistQuery, [userId]);
     const watchlist = watchlistResult.rows.map(stock => ({
       symbol: stock.symbol,
       company_name: stock.company_name || stock.symbol,
@@ -107,7 +164,7 @@ const getDashboardSummary = async (userId) => {
       LIMIT 5
     `;
 
-    const transactionsResult = await pool.query(transactionsQuery, [userId]);
+    const transactionsResult = await safeQuery(pool, transactionsQuery, [userId]);
     const transactions = transactionsResult.rows.map(transaction => ({
       date: transaction.created_at,
       symbol: transaction.symbol,
@@ -130,7 +187,7 @@ const getDashboardSummary = async (userId) => {
       ORDER BY "Kode Indeks"
     `;
 
-    const indicesResult = await pool.query(indicesQuery);
+    const indicesResult = await safeQuery(pool, indicesQuery, []);
     const indices = indicesResult.rows.map(index => ({
       symbol: index.symbol,
       price: parseFloat(index.price) || 0,
@@ -155,7 +212,7 @@ const getDashboardSummary = async (userId) => {
       LIMIT 5
     `;
 
-    const trendingResult = await pool.query(trendingQuery);
+    const trendingResult = await safeQuery(pool, trendingQuery, []);
     const trending = trendingResult.rows.map(stock => ({
       symbol: stock.symbol,
       company_name: stock.company_name || stock.symbol,
@@ -177,7 +234,7 @@ const getDashboardSummary = async (userId) => {
       ORDER BY "Tanggal Perdagangan Terakhir"
     `;
 
-    const ihsgChartResult = await pool.query(ihsgChartQuery);
+    const ihsgChartResult = await safeQuery(pool, ihsgChartQuery, []);
     const ihsgChartData = ihsgChartResult.rows.map(row => ({
       date: row.date,
       price: parseFloat(row.price) || 0
@@ -185,7 +242,7 @@ const getDashboardSummary = async (userId) => {
 
     // Get user's AI quota
     const quotaQuery = 'SELECT ai_quota FROM users WHERE id = $1';
-    const quotaResult = await pool.query(quotaQuery, [userId]);
+    const quotaResult = await safeQuery(pool, quotaQuery, [userId]);
     const aiQuota = quotaResult.rows[0]?.ai_quota || 10;
 
     console.log(`[Dashboard] Successfully fetched dashboard data for user ${userId}`);
@@ -216,7 +273,9 @@ const getDashboardSummary = async (userId) => {
 
   } catch (error) {
     console.error(`[Dashboard] Error fetching dashboard summary for user ${userId}:`, error);
-    throw new Error('Failed to fetch dashboard data');
+    // Return fallback data instead of throwing error to prevent dashboard from crashing
+    console.warn(`[Dashboard] Returning fallback data due to error`);
+    return getFallbackDashboardData();
   }
 };
 
@@ -224,6 +283,7 @@ const getDashboardSummary = async (userId) => {
 const getPortfolioAllocation = async (userId) => {
   try {
     console.log(`[Dashboard] Fetching portfolio allocation for user ${userId}`);
+    const pool = getPool();
 
     const allocationQuery = `
       SELECT
@@ -239,7 +299,7 @@ const getPortfolioAllocation = async (userId) => {
         AND sd."Tanggal Perdagangan Terakhir" = CURRENT_DATE
     `;
 
-    const allocationResult = await pool.query(allocationQuery, [userId]);
+    const allocationResult = await safeQuery(pool, allocationQuery, [userId]);
     const allocations = allocationResult.rows;
 
     // Group by sector for allocation chart
@@ -275,7 +335,11 @@ const getPortfolioAllocation = async (userId) => {
 
   } catch (error) {
     console.error(`[Dashboard] Error fetching portfolio allocation for user ${userId}:`, error);
-    throw new Error('Failed to fetch portfolio allocation');
+    // Return fallback data instead of throwing error
+    return {
+      by_sector: [],
+      total_value: 0
+    };
   }
 };
 

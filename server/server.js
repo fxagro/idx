@@ -126,6 +126,8 @@ const corsOptions = {
     "http://172.51.1.55:3000",
     "https://14a16c21071b.ngrok-free.app",
     /.*\.ngrok\.io$/,
+    "https://idx.mytriv.com",
+    "https://www.idx.mytriv.com",
     process.env.CLIENT_URL
   ].filter(Boolean), // Remove any undefined values
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],

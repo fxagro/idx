@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { pool } = require("../config/db");
+const { getPool } = require("../config/db");
 const { authenticateToken } = require("../middleware/authMiddleware");
 
 // Apply auth middleware to all routes
@@ -8,6 +8,7 @@ router.use(authenticateToken);
 
 // Helper function to get current price (simplified from stocks.js logic)
 async function getCurrentPrice(symbol, market = 'idx') {
+  const pool = getPool();
   const originalSymbol = symbol.toUpperCase();
   const symbolVariations = [originalSymbol, `${originalSymbol}.JK`, originalSymbol.replace('.JK', '')];
 
@@ -65,6 +66,7 @@ async function getCurrentPrice(symbol, market = 'idx') {
 
 // GET /api/stocks/virtual/portfolio - Get user's virtual portfolio
 router.get("/portfolio", async (req, res) => {
+  const pool = getPool();
   const userId = req.user.id;
 
   try {
@@ -100,6 +102,7 @@ router.get("/portfolio", async (req, res) => {
 
 // GET /api/stocks/virtual/history - Get virtual transaction history
 router.get("/history", async (req, res) => {
+  const pool = getPool();
   const userId = req.user.id;
   const { limit = 50, offset = 0 } = req.query;
 
@@ -121,6 +124,7 @@ router.get("/history", async (req, res) => {
 
 // POST /api/stocks/virtual/buy - Enhanced buy orders with realistic execution and slippage
 router.post("/buy", async (req, res) => {
+  const pool = getPool();
   const { symbol, quantity, orderType = 'market', limitPrice } = req.body;
   const userId = req.user.id;
 
@@ -262,6 +266,7 @@ router.post("/buy", async (req, res) => {
 
 // POST /api/stocks/virtual/sell - Enhanced sell orders with realistic execution and slippage
 router.post("/sell", async (req, res) => {
+  const pool = getPool();
   const { symbol, quantity, orderType = 'market', limitPrice } = req.body;
   const userId = req.user.id;
 

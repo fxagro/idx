@@ -1877,6 +1877,467 @@ router.get("/symbols", async (req, res) => {
   }
 });
 
+// GET /api/stocks/idx/symbols - Get list of IDX stock symbols
+router.get("/idx/symbols", async (req, res) => {
+  const requestId = Math.random().toString(36).substring(7);
+  console.log(`[${requestId}] 📊 Fetching IDX stock symbols from database...`);
+  
+  try {
+    const client = await stockPool.connect();
+    console.log(`[${requestId}] ✅ Database connected successfully`);
+    
+    const query = `
+      SELECT DISTINCT "Kode Saham" as symbol, "Nama Perusahaan" as name
+      FROM saham_data
+      ORDER BY "Kode Saham"
+      LIMIT 1000
+    `;
+    
+    console.log(`[${requestId}] 🔍 Executing query...`);
+    const result = await client.query(query);
+    console.log(`[${requestId}] ✅ Query executed successfully, found ${result.rows.length} IDX symbols`);
+    client.release();
+    
+    const symbols = result.rows.map(row => ({
+      symbol: row.symbol,
+      name: row.name
+    }));
+    
+    console.log(`[${requestId}] 📤 Returning ${symbols.length} IDX stock symbols to client`);
+    
+    res.json({
+      success: true,
+      source: 'PostgreSQL Database',
+      total: symbols.length,
+      symbols: symbols
+    });
+    
+  } catch (error) {
+    console.error(`[${requestId}] ❌ Error fetching IDX stock symbols:`, {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      stack: error.stack
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch IDX stock symbols",
+      message: error.message,
+      requestId: requestId
+    });
+  }
+});
+
+// GET /api/stocks/usa/symbols - Get list of US stock symbols
+router.get("/usa/symbols", async (req, res) => {
+  const requestId = Math.random().toString(36).substring(7);
+  console.log(`[${requestId}] 📊 Fetching US stock symbols...`);
+  
+  try {
+    // Return popular US stocks (can be expanded to fetch from external API)
+    const usSymbols = [
+      { symbol: 'AAPL', name: 'Apple Inc.' },
+      { symbol: 'MSFT', name: 'Microsoft Corporation' },
+      { symbol: 'GOOGL', name: 'Alphabet Inc.' },
+      { symbol: 'AMZN', name: 'Amazon.com Inc.' },
+      { symbol: 'TSLA', name: 'Tesla Inc.' },
+      { symbol: 'NVDA', name: 'NVIDIA Corporation' },
+      { symbol: 'META', name: 'Meta Platforms Inc.' },
+      { symbol: 'BRK.B', name: 'Berkshire Hathaway Inc.' },
+      { symbol: 'JPM', name: 'JPMorgan Chase & Co.' },
+      { symbol: 'V', name: 'Visa Inc.' },
+      { symbol: 'JNJ', name: 'Johnson & Johnson' },
+      { symbol: 'WMT', name: 'Walmart Inc.' },
+      { symbol: 'PG', name: 'Procter & Gamble Co.' },
+      { symbol: 'DIS', name: 'The Walt Disney Company' },
+      { symbol: 'NFLX', name: 'Netflix Inc.' },
+      { symbol: 'ADBE', name: 'Adobe Inc.' },
+      { symbol: 'CRM', name: 'Salesforce Inc.' },
+      { symbol: 'INTC', name: 'Intel Corporation' },
+      { symbol: 'AMD', name: 'Advanced Micro Devices' },
+      { symbol: 'PYPL', name: 'PayPal Holdings Inc.' }
+    ];
+    
+    console.log(`[${requestId}] 📤 Returning ${usSymbols.length} US stock symbols to client`);
+    
+    res.json({
+      success: true,
+      source: 'Static List',
+      total: usSymbols.length,
+      symbols: usSymbols
+    });
+    
+  } catch (error) {
+    console.error(`[${requestId}] ❌ Error fetching US stock symbols:`, {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      stack: error.stack
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch US stock symbols",
+      message: error.message,
+      requestId: requestId
+    });
+  }
+});
+
+// GET /api/stocks/idx/candlestick - Get IDX candlestick chart data
+router.get("/idx/candlestick", async (req, res) => {
+  const requestId = Math.random().toString(36).substring(7);
+  const { symbol, timeframe = '1M' } = req.query;
+  
+  console.log(`[${requestId}] 📊 Fetching IDX candlestick data for ${symbol} (${timeframe})...`);
+  
+  if (!symbol) {
+    return res.status(400).json({
+      success: false,
+      error: "Symbol is required",
+      requestId: requestId
+    });
+  }
+  
+  try {
+    const client = await stockPool.connect();
+    console.log(`[${requestId}] ✅ Database connected successfully`);
+    
+    // First, get actual date range from database for this symbol
+    const dateRangeQuery = `
+      SELECT 
+        MIN("Tanggal Perdagangan Terakhir") as min_date,
+        MAX("Tanggal Perdagangan Terakhir") as max_date,
+        COUNT(*) as total_points
+      FROM saham_data
+      WHERE "Kode Saham" = $1
+    `;
+    
+    const dateRangeResult = await client.query(dateRangeQuery, [symbol.toUpperCase()]);
+    console.log(`[${requestId}] 📅 Database date range for ${symbol}:`, dateRangeResult.rows[0]);
+    
+    // Calculate date range based on timeframe, but use database's actual date range
+    const dbDateRange = dateRangeResult.rows[0];
+    const dbMinDate = new Date(dbDateRange.min_date);
+    const dbMaxDate = new Date(dbDateRange.max_date);
+    
+    const now = new Date();
+    let startDate = new Date();
+    
+    switch (timeframe) {
+      case '1M':
+        startDate.setMonth(now.getMonth() - 1);
+        break;
+      case '3M':
+        startDate.setMonth(now.getMonth() - 3);
+        break;
+      case '6M':
+        startDate.setMonth(now.getMonth() - 6);
+        break;
+      case '1Y':
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+      case 'YTD':
+        startDate = new Date(now.getFullYear(), 0, 1); // January 1st of current year
+        break;
+      case 'ALL':
+        startDate = new Date('2020-01-01'); // Go back to 2020
+        break;
+      default:
+        startDate.setMonth(now.getMonth() - 1);
+    }
+    
+    // Adjust start date to be within database range
+    if (startDate < dbMinDate) {
+      startDate = dbMinDate;
+      console.log(`[${requestId}] ⚠️ Adjusted start date to database min: ${startDate.toISOString().split('T')[0]}`);
+    }
+    
+    // Adjust end date to be within database range
+    let endDate = now;
+    if (endDate > dbMaxDate) {
+      endDate = dbMaxDate;
+      console.log(`[${requestId}] ⚠️ Adjusted end date to database max: ${endDate.toISOString().split('T')[0]}`);
+    }
+    
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+    
+    console.log(`[${requestId}] 📅 Date range: ${startDateStr} to ${endDateStr}`);
+    
+    const query = `
+      SELECT
+        "Tanggal Perdagangan Terakhir" as trade_date,
+        "Open Price" as open,
+        "Tertinggi" as high,
+        "Terendah" as low,
+        "Penutupan" as close,
+        "Volume" as volume,
+        "Kode Saham" as symbol,
+        "Nama Perusahaan" as company_name
+      FROM saham_data
+      WHERE "Kode Saham" = $1
+        AND "Tanggal Perdagangan Terakhir" >= $2
+        AND "Tanggal Perdagangan Terakhir" <= $3
+      ORDER BY "Tanggal Perdagangan Terakhir" ASC
+    `;
+    
+    console.log(`[${requestId}] 🔍 Executing query...`);
+    const result = await client.query(query, [symbol.toUpperCase(), startDateStr, endDateStr]);
+    console.log(`[${requestId}] ✅ Query executed successfully, found ${result.rows.length} data points`);
+    client.release();
+    
+    if (result.rows.length === 0) {
+      console.log(`[${requestId}] ⚠️ No data found for ${symbol}`);
+      return res.json({
+        success: true,
+        data: [],
+        company_name: `${symbol} - No Data`,
+        data_points: 0,
+        symbol: symbol.toUpperCase(),
+        timeframe: timeframe,
+        source: 'PostgreSQL Database'
+      });
+    }
+    
+    const data = result.rows.map(row => ({
+      trade_date: row.trade_date,
+      open: parseFloat(row.open) || 0,
+      high: parseFloat(row.high) || 0,
+      low: parseFloat(row.low) || 0,
+      close: parseFloat(row.close) || 0,
+      volume: parseInt(row.volume) || 0
+    }));
+    
+    const companyName = result.rows[0].company_name || symbol;
+    
+    console.log(`[${requestId}] 📤 Returning ${data.length} data points for ${companyName}`);
+    
+    res.json({
+      success: true,
+      data: data,
+      company_name: companyName,
+      data_points: data.length,
+      symbol: symbol.toUpperCase(),
+      timeframe: timeframe,
+      date_range: {
+        start: startDateStr,
+        end: endDateStr
+      },
+      source: 'PostgreSQL Database'
+    });
+    
+  } catch (error) {
+    console.error(`[${requestId}] ❌ Error fetching IDX candlestick data:`, {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      stack: error.stack
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch IDX candlestick data",
+      message: error.message,
+      requestId: requestId
+    });
+  }
+});
+
+// GET /api/stocks/usa/candlestick - Get US stock candlestick chart data
+router.get("/usa/candlestick", async (req, res) => {
+  const requestId = Math.random().toString(36).substring(7);
+  const { symbol, timeframe = '1M' } = req.query;
+  
+  console.log(`[${requestId}] 📊 Fetching US candlestick data for ${symbol} (${timeframe})...`);
+  
+  if (!symbol) {
+    return res.status(400).json({
+      success: false,
+      error: "Symbol is required",
+      requestId: requestId
+    });
+  }
+  
+  try {
+    // Calculate date range based on timeframe
+    const now = new Date();
+    let startDate = new Date();
+    
+    switch (timeframe) {
+      case '1M':
+        startDate.setMonth(now.getMonth() - 1);
+        break;
+      case '3M':
+        startDate.setMonth(now.getMonth() - 3);
+        break;
+      case '6M':
+        startDate.setMonth(now.getMonth() - 6);
+        break;
+      case '1Y':
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+      case 'YTD':
+        startDate = new Date(now.getFullYear(), 0, 1); // January 1st of current year
+        break;
+      case 'ALL':
+        startDate = new Date(now.getFullYear() - 5, 0, 1); // Go back 5 years
+        break;
+      default:
+        startDate.setMonth(now.getMonth() - 1);
+    }
+    
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = now.toISOString().split('T')[0];
+    
+    console.log(`[${requestId}] 📅 Date range: ${startDateStr} to ${endDateStr}`);
+    
+    // Try to fetch from yfinance
+    try {
+      console.log(`[${requestId}] 🔄 Attempting to fetch from yfinance...`);
+      
+      const stockData = await yfinance.historical(symbol, {
+        period1: startDateStr,
+        period2: endDateStr,
+        interval: '1d'
+      });
+      
+      if (stockData && stockData.quotes && stockData.quotes.length > 0) {
+        console.log(`[${requestId}] ✅ Successfully fetched ${stockData.quotes.length} data points from yfinance`);
+        
+        const data = stockData.quotes.map(quote => ({
+          trade_date: quote.date,
+          open: parseFloat(quote.open) || 0,
+          high: parseFloat(quote.high) || 0,
+          low: parseFloat(quote.low) || 0,
+          close: parseFloat(quote.close) || 0,
+          volume: parseInt(quote.volume) || 0
+        }));
+        
+        return res.json({
+          success: true,
+          data: data,
+          company_name: symbol,
+          data_points: data.length,
+          symbol: symbol.toUpperCase(),
+          timeframe: timeframe,
+          date_range: {
+            start: startDateStr,
+            end: endDateStr
+          },
+          source: 'yfinance'
+        });
+      }
+    } catch (yfinanceError) {
+      console.log(`[${requestId}] ⚠️ yfinance fetch failed: ${yfinanceError.message}`);
+    }
+    
+    // Fallback to mock data
+    console.log(`[${requestId}] 🔄 Generating mock data for ${symbol}...`);
+    
+    const basePrice = getBasePriceForSymbol(symbol);
+    const data = [];
+    const days = getDaysForTimeframe(timeframe);
+    
+    for (let i = 0; i < days; i++) {
+      const date = new Date(startDate);
+      date.setDate(date.getDate() + i);
+      
+      const priceVariation = (Math.random() - 0.5) * 0.02; // ±1% daily variation
+      const dayPrice = basePrice * (1 + priceVariation * i / days);
+      
+      data.push({
+        trade_date: date.toISOString().split('T')[0],
+        open: Math.round(dayPrice * 0.98 * 100) / 100,
+        high: Math.round(dayPrice * 1.03 * 100) / 100,
+        low: Math.round(dayPrice * 0.97 * 100) / 100,
+        close: Math.round(dayPrice * 100) / 100,
+        volume: Math.floor(1000000 + Math.random() * 10000000)
+      });
+    }
+    
+    console.log(`[${requestId}] 📤 Returning ${data.length} mock data points for ${symbol}`);
+    
+    res.json({
+      success: true,
+      data: data,
+      company_name: symbol,
+      data_points: data.length,
+      symbol: symbol.toUpperCase(),
+      timeframe: timeframe,
+      date_range: {
+        start: startDateStr,
+        end: endDateStr
+      },
+      source: 'Mock Data'
+    });
+    
+  } catch (error) {
+    console.error(`[${requestId}] ❌ Error fetching US candlestick data:`, {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      stack: error.stack
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch US candlestick data",
+      message: error.message,
+      requestId: requestId
+    });
+  }
+});
+
+// Helper function to get base price for a symbol
+function getBasePriceForSymbol(symbol) {
+  const symbolUpper = symbol.toUpperCase();
+  const prices = {
+    'AAPL': 175.50,
+    'MSFT': 335.67,
+    'GOOGL': 138.42,
+    'AMZN': 145.23,
+    'TSLA': 245.89,
+    'NVDA': 485.23,
+    'META': 325.67,
+    'BRK.B': 365.45,
+    'JPM': 175.34,
+    'V': 245.67,
+    'JNJ': 165.23,
+    'WMT': 155.89,
+    'PG': 155.45,
+    'DIS': 95.67,
+    'NFLX': 485.23,
+    'ADBE': 525.67,
+    'CRM': 245.34,
+    'INTC': 45.23,
+    'AMD': 145.67,
+    'PYPL': 65.34
+  };
+  return prices[symbolUpper] || 100 + Math.random() * 400;
+}
+
+// Helper function to get number of days for timeframe
+function getDaysForTimeframe(timeframe) {
+  switch (timeframe) {
+    case '1M': return 30;
+    case '3M': return 90;
+    case '6M': return 180;
+    case '1Y': return 365;
+    case 'YTD': 
+      const now = new Date();
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      return Math.floor((now - startOfYear) / (1000 * 60 * 60 * 24));
+    case 'ALL': return 1825; // 5 years
+    default: return 30;
+  }
+}
+
 // GET /api/stocks/candlestick - Get candlestick chart data for a stock
 // FIXED VERSION - Uses actual database date range instead of relative dates
 

@@ -2,7 +2,7 @@
 
 /**
  * Ultra-robust startup script for AI Saham server
- * Handles Windows MINGW64, ngrok conflicts, port binding, and syntax validation
+ * Handles port binding and syntax validation
  */
 
 const { spawn, exec } = require('child_process');
@@ -27,30 +27,6 @@ function execPromise(command) {
       }
     });
   });
-}
-
-// Function to kill ngrok processes
-async function killNgrok() {
-  console.log('🔍 Checking for ngrok processes...');
-
-  if (process.platform === 'win32') {
-    // Windows MINGW64: Force kill ngrok.exe with shell option
-    try {
-      console.log('🛑 Force killing ngrok.exe...');
-      await execPromise('taskkill /F /IM ngrok.exe', { shell: true });
-      console.log('✅ Killed ngrok');
-    } catch (error) {
-      console.log('⚠️ No ngrok.exe found or already killed');
-    }
-  } else {
-    // Unix-like: Use pkill
-    try {
-      await execPromise('pkill ngrok');
-      console.log('✅ Killed ngrok');
-    } catch (error) {
-      console.log('⚠️ No ngrok found or already killed');
-    }
-  }
 }
 
 // Function to kill processes on a specific port
@@ -208,28 +184,24 @@ async function startServer() {
   console.log('🚀 Starting AI Saham server with OpenBB integration...');
 
   try {
-    // Step 1: Kill ngrok processes
-    console.log('📋 Step 1: Killing ngrok processes...');
-    await killNgrok();
-
-    // Step 2: Validate server syntax
-    console.log('📋 Step 2: Validating server syntax...');
+    // Step 1: Validate server syntax
+    console.log('📋 Step 1: Validating server syntax...');
     const syntaxValid = await validateServerSyntax();
     if (!syntaxValid) {
       console.error('❌ Server syntax validation failed, aborting startup');
       process.exit(1);
     }
 
-    // Step 3: Check for duplicate declarations
-    console.log('📋 Step 3: Checking for duplicate declarations...');
+    // Step 2: Check for duplicate declarations
+    console.log('📋 Step 2: Checking for duplicate declarations...');
     const noDuplicates = checkDuplicateDeclarations();
     if (!noDuplicates) {
       console.error('❌ Duplicate declarations found, aborting startup');
       process.exit(1);
     }
 
-    // Step 4: Check port availability and kill if needed
-    console.log('📋 Step 4: Checking port availability...');
+    // Step 3: Check port availability and kill if needed
+    console.log('📋 Step 3: Checking port availability...');
     let port = 5000;
 
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -282,4 +254,4 @@ if (require.main === module) {
   startServer();
 }
 
-module.exports = { startServer, killPort, killNgrok, checkPortAvailability, validateServerSyntax };
+module.exports = { startServer, killPort, checkPortAvailability, validateServerSyntax };

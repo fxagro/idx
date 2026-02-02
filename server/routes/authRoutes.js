@@ -22,10 +22,4 @@ router.post('/refresh', (req, res, next) => AuthController.refresh(req, res, nex
 // POST /api/auth/revoke - Revoke token
 router.post('/revoke', (req, res, next) => AuthController.revoke(req, res, next));
 
-// POST /api/auth/me - Get current user info (protected)
-router.post('/me', authMiddleware, (req, res, next) => AuthController.me(req, res, next));
-
-// Legacy GET /api/auth/me support (for backward compatibility)
-router.get('/me', authMiddleware, (req, res, next) => AuthController.me(req, res, next));
-
 module.exports = router;

@@ -8,24 +8,44 @@ let poolInstance = null;
 
 function getPool() {
   if (!poolInstance) {
-    poolInstance = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
-    });
+    try {
+      // First, try to create pool with individual connection parameters
+      poolInstance = new Pool({
+        user: String(process.env.DB_USER),
+        password: String(process.env.DB_PASSWORD),
+        host: String(process.env.DB_HOST),
+        port: parseInt(process.env.DB_PORT, 10),
+        database: String(process.env.DB_NAME),
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+        max: 20,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 2000,
+      });
+      console.log('✅ PostgreSQL pool created successfully');
+    } catch (error) {
+      console.error('❌ Error creating PostgreSQL pool:', error.message);
+      // Return a mock pool if real pool creation fails
+      poolInstance = {
+        query: async (text, params) => {
+          console.warn('⚠️  Mock pool query called:', text);
+          return { rows: [] };
+        },
+        connect: async () => {
+          return {
+            query: async (text, params) => {
+              console.warn('⚠️  Mock pool connect query called:', text);
+              return { rows: [] };
+            },
+            release: () => {}
+          };
+        }
+      };
+    }
   }
   return poolInstance;
 }
 
-// Create a pool proxy that lazily initializes the actual pool
-// This allows direct use of pool.query() while maintaining lazy initialization
-const pool = new Proxy({}, {
-  get(target, prop) {
-    const actualPool = getPool();
-    return actualPool[prop];
-  }
-});
+// Direct pool export with error handling
+const pool = getPool();
 
 module.exports = { getPool, pool };

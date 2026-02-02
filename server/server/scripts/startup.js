@@ -2,7 +2,7 @@
 
 /**
  * Ultra-robust startup script for AI Saham server
- * Handles Windows MINGW64, ngrok conflicts, port binding, and syntax validation
+ * Handles Windows MINGW64, port binding, and syntax validation
  */
 
 const { spawn, exec } = require('child_process');
@@ -27,30 +27,6 @@ function execPromise(command) {
       }
     });
   });
-}
-
-// Function to kill ngrok processes
-async function killNgrok() {
-  console.log('🔍 Checking for ngrok processes...');
-
-  if (process.platform === 'win32') {
-    // Windows MINGW64: Force kill ngrok.exe with shell option
-    try {
-      console.log('🛑 Force killing ngrok.exe...');
-      await execPromise('taskkill /F /IM ngrok.exe', { shell: true });
-      console.log('✅ Killed ngrok');
-    } catch (error) {
-      console.log('⚠️ No ngrok.exe found or already killed');
-    }
-  } else {
-    // Unix-like: Use pkill
-    try {
-      await execPromise('pkill ngrok');
-      console.log('✅ Killed ngrok');
-    } catch (error) {
-      console.log('⚠️ No ngrok found or already killed');
-    }
-  }
 }
 
 // Function to kill processes on a specific port
@@ -208,9 +184,10 @@ async function startServer() {
   console.log('🚀 Starting AI Saham server with OpenBB integration...');
 
   try {
-    // Step 1: Kill ngrok processes
-    console.log('📋 Step 1: Killing ngrok processes...');
-    await killNgrok();
+    // Step 1: Check for processes on required ports
+    console.log('📋 Step 1: Checking port availability...');
+    await killPort(5000);
+    await killPort(5173);
 
     // Step 2: Validate server syntax
     console.log('📋 Step 2: Validating server syntax...');
@@ -282,4 +259,4 @@ if (require.main === module) {
   startServer();
 }
 
-module.exports = { startServer, killPort, killNgrok, checkPortAvailability, validateServerSyntax };
+module.exports = { startServer, killPort, checkPortAvailability, validateServerSyntax };

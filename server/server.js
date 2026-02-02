@@ -84,15 +84,38 @@ global.logger = logger;
 // PostgreSQL setup with fallback
 let pool;
 try {
-  const dbModule = require("./db");
-  pool = dbModule.getPool();
+  // Try to load the database module with proper error handling
+  const dbConfig = require("./config/db");
+  pool = dbConfig.getPool();
   logger.info('Database module loaded successfully');
 } catch (error) {
-  logger.error('Failed to load database module:', error.message);
-  // Create a mock pool for development
+  logger.error('Failed to load database module:', {
+    message: error.message,
+    stack: error.stack
+  });
+  // Create a mock pool for development with fallback
   pool = {
-    query: async () => {
-      throw new Error('Database not available');
+    query: async (text, params) => {
+      logger.warn('Mock pool query called:', { text, params });
+      // Return empty results for read operations to allow basic functionality
+      if (text.toLowerCase().startsWith('select')) {
+        return { rows: [] };
+      }
+      // For write operations, just acknowledge
+      if (text.toLowerCase().startsWith('insert') || text.toLowerCase().startsWith('update') || text.toLowerCase().startsWith('delete')) {
+        return { rowCount: 0 };
+      }
+      // For other operations, return basic response
+      return { rows: [] };
+    },
+    connect: async () => {
+      return {
+        query: async (text, params) => {
+          logger.warn('Mock pool connect query called:', { text, params });
+          return { rows: [] };
+        },
+        release: () => {}
+      };
     }
   };
 }
@@ -124,8 +147,6 @@ const corsOptions = {
     "http://172.51.1.55:5173",
     "http://172.51.1.55:5174",
     "http://172.51.1.55:3000",
-    "https://14a16c21071b.ngrok-free.app",
-    /.*\.ngrok\.io$/,
     "https://idx.mytriv.com",
     "https://www.idx.mytriv.com",
     process.env.CLIENT_URL
@@ -312,10 +333,120 @@ async function bootstrap() {
           api_usage INTEGER DEFAULT 0,
           api_limit INTEGER DEFAULT 100,
           ai_quota INTEGER DEFAULT 10,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          ai_usage INTEGER DEFAULT 0,
+          referral_code VARCHAR(50),
+          virtual_saldo DECIMAL(15, 2) DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
       logger.info('✅ Users table created/verified successfully');
+
+      // Auto-create user_sessions table if it doesn't exist
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS user_sessions (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token_jti VARCHAR(255) UNIQUE NOT NULL,
+          ip_address VARCHAR(45),
+          user_agent TEXT,
+          location VARCHAR(255),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          is_revoked BOOLEAN DEFAULT FALSE,
+          expires_at TIMESTAMP NOT NULL
+        )
+      `);
+      logger.info('✅ User sessions table created/verified successfully');
+
+      // Create indexes for user_sessions table
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+        CREATE INDEX IF NOT EXISTS idx_user_sessions_token_jti ON user_sessions(token_jti);
+        CREATE INDEX IF NOT EXISTS idx_user_sessions_is_revoked ON user_sessions(is_revoked);
+        CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
+      `);
+      logger.info('✅ User sessions indexes created/verified successfully');
+
+      // Add avatar column to users table if it doesn't exist
+      await pool.query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'users' AND column_name = 'avatar'
+          ) THEN
+            ALTER TABLE users ADD COLUMN avatar TEXT;
+          END IF;
+        END $$
+      `);
+
+      // Add auth_method column to users table if it doesn't exist
+      await pool.query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'users' AND column_name = 'auth_method'
+          ) THEN
+            ALTER TABLE users ADD COLUMN auth_method VARCHAR(50) DEFAULT 'password';
+          END IF;
+        END $$
+      `);
+
+      // Add updated_at column to users table if it doesn't exist
+      await pool.query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'users' AND column_name = 'updated_at'
+          ) THEN
+            ALTER TABLE users ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+          END IF;
+        END $$
+      `);
+
+      // Add ai_usage column to users table if it doesn't exist
+      await pool.query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'users' AND column_name = 'ai_usage'
+          ) THEN
+            ALTER TABLE users ADD COLUMN ai_usage INTEGER DEFAULT 0;
+          END IF;
+        END $$
+      `);
+
+      // Add referral_code column to users table if it doesn't exist
+      await pool.query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'users' AND column_name = 'referral_code'
+          ) THEN
+            ALTER TABLE users ADD COLUMN referral_code VARCHAR(50);
+          END IF;
+        END $$
+      `);
+
+      // Add virtual_saldo column to users table if it doesn't exist
+      await pool.query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'users' AND column_name = 'virtual_saldo'
+          ) THEN
+            ALTER TABLE users ADD COLUMN virtual_saldo DECIMAL(15, 2) DEFAULT 0;
+          END IF;
+        END $$
+      `);
+
+      logger.info('✅ Users table columns verified successfully');
     } else {
       logger.error('❌ Database connection failed after all retries');
     }

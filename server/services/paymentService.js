@@ -1,4 +1,4 @@
-const pool = require('../db');
+const { getPool } = require('../db');
 const nodemailer = require('nodemailer');
 
 // Create subscription order with email notification
@@ -12,7 +12,8 @@ const createOrder = async (userId, planId, amount) => {
       RETURNING id
     `;
 
-    const result = await pool.query(query, [userId, planId, amount]);
+    const db = getPool();
+    const result = await db.query(query, [userId, planId, amount]);
 
     console.log(`[PaymentService] Successfully created subscription order ${result.rows[0].id} for user ${userId}`);
 
@@ -96,7 +97,8 @@ const getUserOrders = async (userId) => {
       ORDER BY created_at DESC
     `;
 
-    const result = await pool.query(query, [userId]);
+    const db = getPool();
+    const result = await db.query(query, [userId]);
 
     console.log(`[PaymentService] Successfully fetched ${result.rows.length} subscription orders for user ${userId}`);
 
@@ -126,7 +128,8 @@ const updateOrderStatus = async (orderId, status, proofPath = null) => {
       RETURNING *
     `;
 
-    const result = await pool.query(query, [status, proofPath, orderId]);
+    const db = getPool();
+    const result = await db.query(query, [status, proofPath, orderId]);
 
     if (result.rows.length === 0) {
       throw new Error('Subscription order not found');
@@ -147,8 +150,9 @@ const sendOrderConfirmationEmail = async (userId, planId, amount) => {
     console.log(`[PaymentService] Sending order confirmation email to user ${userId}`);
 
     // Get user email
+    const db = getPool();
     const userQuery = 'SELECT email FROM users WHERE id = $1';
-    const userResult = await pool.query(userQuery, [userId]);
+    const userResult = await db.query(userQuery, [userId]);
 
     if (userResult.rows.length === 0) {
       throw new Error('User not found');

@@ -121,8 +121,6 @@ const corsOptions = {
     "http://172.51.1.55:5173",
     "http://172.51.1.55:5174",
     "http://172.51.1.55:3000",
-    "https://14a16c21071b.ngrok-free.app",
-    /.*\.ngrok\.io$/,
     process.env.CLIENT_URL
   ].filter(Boolean), // Remove any undefined values
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],

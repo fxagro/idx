@@ -9,11 +9,11 @@ router.use(authenticateToken);
 router.use(logAuthenticatedRequest);
 
 /**
- * GET /api/me
+ * GET /
  * Get current user information (protected route)
  * Enhanced with comprehensive logging and edge case handling
  */
-router.get('/me', (req, res) => {
+router.get('/', (req, res) => {
   const requestId = req.requestId;
   const user = req.user;
 
@@ -73,11 +73,11 @@ router.get('/me', (req, res) => {
 });
 
 /**
- * PUT /api/me
+ * PUT /
  * Update current user information (protected route)
  * Enhanced with validation and comprehensive logging
  */
-router.put('/me', async (req, res) => {
+router.put('/', async (req, res) => {
   const requestId = req.requestId;
   const user = req.user;
 
@@ -161,11 +161,11 @@ router.put('/me', async (req, res) => {
 });
 
 /**
- * DELETE /api/me/token
+ * DELETE /token
  * Invalidate current token (logout)
  * Enhanced with comprehensive logging
  */
-router.delete('/me/token', (req, res) => {
+router.delete('/token', (req, res) => {
   const requestId = req.requestId;
   const user = req.user;
 
@@ -222,10 +222,10 @@ router.delete('/me/token', (req, res) => {
 });
 
 /**
- * GET /api/me/sessions
+ * GET /sessions
  * Get user sessions (for completeness)
  */
-router.get('/me/sessions', (req, res) => {
+router.get('/sessions', (req, res) => {
   const requestId = req.requestId;
   const user = req.user;
 

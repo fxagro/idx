@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
-const mockDatabase = require('../mockDatabase');
+const bcrypt = require('bcrypt');
+const { Pool } = require('pg');
 const inMemoryCache = require('../utils/cache');
+const logger = require('../utils/logger').console;
 
 // Lazy load JWT secret to ensure environment variables are loaded
 function getJwtSecret() {
@@ -9,6 +11,18 @@ function getJwtSecret() {
 
 function getJwtExpiresIn() {
   return process.env.JWT_EXPIRATION || '7d';
+}
+
+// Create a fresh pool for each request to avoid connection issues
+function getFreshPool() {
+  return new Pool({
+    user: process.env.DB_USER,
+    password: String(process.env.DB_PASSWORD),
+    host: process.env.DB_HOST,
+    port: parseInt(process.env.DB_PORT, 10),
+    database: process.env.DB_NAME,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  });
 }
 
 class AuthService {
@@ -41,24 +55,18 @@ class AuthService {
     }, requestId);
 
     try {
-      // Edge case: Simulate token generation failure (1% chance)
-      if (Math.random() < 0.01) {
-        this.logOperation('GENERATE_TOKEN_ERROR', { error: 'JWT signing failed' }, requestId);
-        throw new Error('Token generation failed');
-      }
-
       const payload = {
-              id: user.id,
-              email: user.email,
-              role: user.role,
-              name: user.name
-            };
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        name: user.name || user.email.split('@')[0]
+      };
       
-            const token = jwt.sign(payload, this.jwtSecret, {
-              expiresIn: this.jwtExpiresIn,
-              issuer: 'idxgpt-auth-system',
-              audience: 'idxgpt-client'
-            });
+      const token = jwt.sign(payload, this.jwtSecret, {
+        expiresIn: this.jwtExpiresIn,
+        issuer: 'idxgpt-auth-system',
+        audience: 'idxgpt-client'
+      });
 
       this.logOperation('GENERATE_TOKEN_SUCCESS', {
         userId: user.id,
@@ -86,18 +94,13 @@ class AuthService {
     }, requestId);
 
     try {
-      // Edge case: Handle malformed tokens
+      // Handle malformed tokens
       if (!token || typeof token !== 'string') {
         this.logOperation('VERIFY_TOKEN_INVALID_INPUT', {
           error: 'Token must be non-empty string',
           tokenType: typeof token
         }, requestId);
         throw new Error('Invalid token format');
-      }
-
-      // Edge case: Simulate token verification delay (2% chance)
-      if (Math.random() < 0.02) {
-        this.logOperation('VERIFY_TOKEN_DELAY_SIMULATION', { delay: '200ms' }, requestId);
       }
 
       const decoded = jwt.verify(token, this.jwtSecret, {
@@ -133,7 +136,7 @@ class AuthService {
     }
   }
 
-  // Authenticate user with comprehensive logging and edge case handling (NO AUTO-CREATE)
+  // Authenticate user using real PostgreSQL database
   async authenticateUser(email, password = null, requestId = null) {
     this.logOperation('AUTHENTICATE_USER_START', {
       email,
@@ -142,59 +145,65 @@ class AuthService {
       requestId
     }, requestId);
 
-    try {
-      // Edge case: Simulate authentication service overload (1% chance)
-      if (Math.random() < 0.01) {
-        this.logOperation('AUTHENTICATE_USER_SERVICE_OVERLOAD', { error: 'Authentication service temporarily unavailable' }, requestId);
-        return {
-          success: false,
-          error: 'Authentication service temporarily unavailable',
-          code: 'SERVICE_OVERLOAD',
-          user: null,
-          token: null,
-          timestamp: new Date().toISOString()
-        };
-      }
+    const pool = getFreshPool();
 
-      // Validate credentials using mock database (will reject non-existing users)
-      const validation = mockDatabase.validateUserCredentials(email, password, requestId);
+    try {
+      // Find user by email in real PostgreSQL database
+      const { rows } = await pool.query(
+        'SELECT id, email, password, role FROM users WHERE email = $1',
+        [email.toLowerCase().trim()]
+      );
+
+      const user = rows[0];
 
       this.logOperation('AUTHENTICATE_USER_DB_RESULT', {
-        valid: validation.valid,
-        error: validation.error,
-        hasUser: !!validation.user,
+        hasUser: !!user,
+        email,
         requestId
       }, requestId);
 
-      if (!validation.valid) {
+      if (!user) {
         this.logOperation('AUTHENTICATE_USER_FAILED', {
           email,
-          error: validation.error,
-          code: validation.error === 'User not found' ? 'USER_NOT_FOUND' : 'AUTH_FAILED',
+          error: 'User not found',
+          code: 'USER_NOT_FOUND',
           requestId
         }, requestId);
 
-        // Provide specific error codes for different failure types
-        let errorCode = 'AUTH_FAILED';
-        if (validation.error === 'User not found') {
-          errorCode = 'USER_NOT_FOUND';
-        } else if (validation.error === 'Password required') {
-          errorCode = 'PASSWORD_REQUIRED';
-        } else if (validation.error === 'Invalid credentials') {
-          errorCode = 'INVALID_CREDENTIALS';
-        }
-
+        await pool.end();
         return {
           success: false,
-          error: validation.error,
-          code: errorCode,
+          error: 'User not found',
+          code: 'USER_NOT_FOUND',
           user: null,
           token: null,
           timestamp: new Date().toISOString()
         };
       }
 
-      const user = validation.user;
+      // Verify password
+      if (password) {
+        const isValidPassword = await bcrypt.compare(password, user.password);
+        if (!isValidPassword) {
+          this.logOperation('AUTHENTICATE_USER_FAILED', {
+            email,
+            error: 'Invalid credentials',
+            code: 'INVALID_CREDENTIALS',
+            requestId
+          }, requestId);
+
+          await pool.end();
+          return {
+            success: false,
+            error: 'Invalid credentials',
+            code: 'INVALID_CREDENTIALS',
+            user: null,
+            token: null,
+            timestamp: new Date().toISOString()
+          };
+        }
+      }
+
       this.logOperation('AUTHENTICATE_USER_SUCCESS', {
         userId: user.id,
         email: user.email,
@@ -205,14 +214,7 @@ class AuthService {
       // Generate JWT token
       const token = this.generateToken(user, requestId);
 
-      // Log passwordless login in development
-      if (process.env.NODE_ENV === 'development') {
-        this.logOperation('AUTHENTICATE_USER_PASSWORDLESS_WARNING', {
-          email: user.email,
-          mode: 'development'
-        }, requestId);
-      }
-
+      await pool.end();
       return {
         success: true,
         error: null,
@@ -220,7 +222,7 @@ class AuthService {
           id: user.id,
           email: user.email,
           role: user.role,
-          name: user.name
+          name: user.email.split('@')[0]
         },
         token,
         expiresIn: this.jwtExpiresIn,
@@ -234,6 +236,7 @@ class AuthService {
         requestId
       }, requestId);
 
+      await pool.end();
       return {
         success: false,
         error: 'Authentication failed',
@@ -246,22 +249,32 @@ class AuthService {
   }
 
   // Get user from token with enhanced logging
-  getUserFromToken(token, requestId = null) {
+  async getUserFromToken(token, requestId = null) {
     this.logOperation('GET_USER_FROM_TOKEN_START', {
       hasToken: !!token,
       tokenLength: token ? token.length : 0,
       requestId
     }, requestId);
 
+    const pool = getFreshPool();
+
     try {
       const decoded = this.verifyToken(token, requestId);
-      const user = mockDatabase.findUserById(decoded.id, requestId);
+      
+      // Get user from real database
+      const { rows } = await pool.query(
+        'SELECT id, email, role FROM users WHERE id = $1',
+        [decoded.id]
+      );
+
+      const user = rows[0];
 
       if (!user) {
         this.logOperation('GET_USER_FROM_TOKEN_USER_NOT_FOUND', {
           decodedId: decoded.id,
           decodedEmail: decoded.email
         }, requestId);
+        await pool.end();
         throw new Error('User not found');
       }
 
@@ -272,22 +285,24 @@ class AuthService {
         requestId
       }, requestId);
 
+      await pool.end();
       return {
         id: user.id,
         email: user.email,
         role: user.role,
-        name: user.name
+        name: user.email.split('@')[0]
       };
     } catch (error) {
       this.logOperation('GET_USER_FROM_TOKEN_ERROR', {
         error: error.message,
         requestId
       }, requestId);
+      await pool.end();
       throw new Error('Invalid token');
     }
   }
 
-  // Check if passwordless mode is enabled with enhanced logging
+  // Check if passwordless mode is enabled
   isPasswordlessMode() {
     const env = (process.env.NODE_ENV || 'development').trim();
     const isDev = env === 'development';
@@ -301,7 +316,7 @@ class AuthService {
     return isDev;
   }
 
-  // Get authentication requirements based on environment with logging
+  // Get authentication requirements based on environment
   getAuthRequirements() {
     const env = (process.env.NODE_ENV || 'development').trim();
     const passwordless = this.isPasswordlessMode();
@@ -330,7 +345,7 @@ class AuthService {
     this.operationLog = [];
   }
 
-  // Register new user (mock implementation)
+  // Register new user using real PostgreSQL database
   async register(userData, requestId = null) {
     this.logOperation('REGISTER_START', {
       email: userData.email,
@@ -338,21 +353,34 @@ class AuthService {
       requestId
     }, requestId);
 
+    const pool = getFreshPool();
+
     try {
       // Check if user already exists
-      const existingUser = mockDatabase.findUserByEmail(userData.email, requestId);
-      if (existingUser) {
+      const { rows: existingUsers } = await pool.query(
+        'SELECT id FROM users WHERE email = $1',
+        [userData.email.toLowerCase().trim()]
+      );
+
+      if (existingUsers.length > 0) {
         this.logOperation('REGISTER_USER_EXISTS', { email: userData.email }, requestId);
+        await pool.end();
         throw new Error('User already exists');
       }
 
+      // Hash password
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(userData.password, saltRounds);
+
       // Create new user
-            const newUser = mockDatabase.addUser({
-              email: userData.email,
-              password: userData.password,
-              name: userData.name,
-              phone: userData.phone
-            }, requestId);
+      const { rows } = await pool.query(
+        `INSERT INTO users (email, password, role, subscription_expiry, api_usage, api_limit, ai_quota) 
+         VALUES ($1, $2, $3, NOW() + INTERVAL '1 month', 0, 100, 10) 
+         RETURNING id, email, role`,
+        [userData.email.toLowerCase().trim(), hashedPassword, 'user']
+      );
+
+      const newUser = rows[0];
 
       this.logOperation('REGISTER_SUCCESS', {
         userId: newUser.id,
@@ -360,23 +388,37 @@ class AuthService {
         requestId
       }, requestId);
 
+      await pool.end();
       return {
         id: newUser.id,
         email: newUser.email,
-        name: newUser.name,
+        name: userData.name || userData.email.split('@')[0],
         role: newUser.role
       };
     } catch (error) {
       this.logOperation('REGISTER_ERROR', {
         error: error.message,
+        stack: error.stack,
         email: userData.email,
         requestId
       }, requestId);
+      
+      await pool.end();
+      
+      // Handle specific errors
+      if (error.message.includes('pool.query is not a function')) {
+        this.logOperation('DATABASE_POOL_ERROR', {
+          error: 'Database pool not initialized correctly',
+          requestId
+        }, requestId);
+        throw new Error('Database connection error');
+      }
+      
       throw error;
     }
   }
 
-  // Login user (mock implementation)
+  // Login user
   async login(email, password, requestId = null) {
     this.logOperation('LOGIN_START', {
       email,
@@ -425,11 +467,19 @@ class AuthService {
       requestId
     }, requestId);
 
+    const pool = getFreshPool();
+
     try {
-      const user = mockDatabase.findUserById(userId, requestId);
+      const { rows } = await pool.query(
+        'SELECT id, email, role FROM users WHERE id = $1',
+        [userId]
+      );
+
+      const user = rows[0];
 
       if (!user) {
         this.logOperation('GET_CURRENT_USER_NOT_FOUND', { userId }, requestId);
+        await pool.end();
         throw new Error('User not found');
       }
 
@@ -439,12 +489,13 @@ class AuthService {
         requestId
       }, requestId);
 
+      await pool.end();
       return {
         id: user.id,
         email: user.email,
-        name: user.name,
+        name: user.email.split('@')[0],
         role: user.role,
-        phone: user.phone
+        phone: user.phone || ''
       };
     } catch (error) {
       this.logOperation('GET_CURRENT_USER_ERROR', {
@@ -452,6 +503,7 @@ class AuthService {
         userId,
         requestId
       }, requestId);
+      await pool.end();
       throw error;
     }
   }
@@ -502,13 +554,21 @@ class AuthService {
       requestId
     }, requestId);
 
+    const pool = getFreshPool();
+
     try {
       // Verify the refresh token
       const decoded = this.verifyToken(refreshToken, requestId);
 
-      // Get user from token
-      const user = mockDatabase.findUserById(decoded.id, requestId);
+      // Get user from real database
+      const { rows } = await pool.query(
+        'SELECT id, email, role FROM users WHERE id = $1',
+        [decoded.id]
+      );
+
+      const user = rows[0];
       if (!user) {
+        await pool.end();
         throw new Error('User not found');
       }
 
@@ -521,12 +581,13 @@ class AuthService {
         requestId
       }, requestId);
 
+      await pool.end();
       return {
         user: {
           id: user.id,
           email: user.email,
           role: user.role,
-          name: user.name
+          name: user.email.split('@')[0]
         },
         token: newToken,
         expiresIn: this.jwtExpiresIn
@@ -536,6 +597,7 @@ class AuthService {
         error: error.message,
         requestId
       }, requestId);
+      await pool.end();
       throw error;
     }
   }

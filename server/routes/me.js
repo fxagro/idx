@@ -2,7 +2,7 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const { ChartJSNodeCanvas } = require("chartjs-node-canvas");
-const mockDatabase = require("../mockDatabase");
+const User = require("../models/User");
 
 // Load environment variables
 require('dotenv').config({ path: '.env' });
@@ -40,8 +40,8 @@ function auth(req, res, next) {
 // GET /me → info user
 router.get("/", auth, async (req, res) => {
   try {
-    // Use mockDatabase to get user data (consistent with authentication flow)
-    const user = mockDatabase.findUserById(req.user.id);
+    // Use User model to get actual user data from database
+    const user = await User.findById(req.user.id);
 
     if (!user) {
       return res.status(404).json({ success: false, error: "User not found" });
@@ -54,11 +54,12 @@ router.get("/", auth, async (req, res) => {
         email: user.email,
         role: user.role,
         name: user.name,
-        ai_quota: 10, // Default value for mock users
-        subscription: 'active', // Mock subscription status
-        subscription_expiry: null,
-        api_usage: 0, // Default value for mock users
-        api_limit: 100, // Default value for mock users
+        ai_quota: user.ai_quota || 10,
+        subscription: user.subscription_expiry ? 'active' : 'inactive',
+        subscription_expiry: user.subscription_expiry,
+        api_usage: user.api_usage || 0,
+        api_limit: user.api_limit || 100,
+        username: user.name || user.email.split('@')[0],
       }
     });
   } catch (err) {

@@ -25331,8 +25331,9 @@ async def report_status1(update: Update, context: ContextTypes.DEFAULT_TYPE):
         transactions = data["accounts"][active_account]["transactions"]
 
         if not transactions:
+            escaped_account = active_account.replace('_', '\\_')
             await update.message.reply_text(
-                f"Belum ada transaksi pembelian saham di {active_account.replace('_', '\\_')}\\.",
+                f"Belum ada transaksi pembelian saham di {escaped_account}\\.",
                 parse_mode="MarkdownV2"
             )
             return
@@ -25361,7 +25362,7 @@ async def report_status1(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
                 pl = (current_price - buy_price) * lot * 100
                 total_pl += pl
-                pl_text = f"{'🟢 \\+' if pl >= 0 else '🔴 \\-'}Rp {int(abs(pl))}"
+                pl_text = f"{'🟢 +' if pl >= 0 else '🔴 -'}Rp {int(abs(pl))}"
 
                 # Simpan data untuk fallback HTML
                 transaction_data.append({
@@ -25387,7 +25388,8 @@ async def report_status1(update: Update, context: ContextTypes.DEFAULT_TYPE):
             total_pl_text = total_pl_text.replace(char, f"\\{char}")
 
         # Debug: Log pesan sebelum dikirim
-        message = f"📊 *Laporan Status Posisi ({active_account.replace('_', '\\_')})*\n\n" \
+        escaped_account = active_account.replace('_', '\\_')
+        message = f"📊 *Laporan Status Posisi ({escaped_account})*\n\n" \
                   f"Per tanggal: 2025\\-06\\-12 17\\:30 WIB\n\n" \
                   f"{table}\n**{total_pl_text}**"
         logging.info(f"Sending message: {message}")
@@ -25405,7 +25407,8 @@ async def report_status1(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ticker = tx_data['ticker'].replace('(', '&lpar;').replace(')', '&rpar;')
                 buy_date = tx_data['buy_date'].replace('(', '&lpar;').replace(')', '&rpar;')
                 message_html += f"<tr><td>{ticker}</td><td>{buy_date}</td><td>{int(tx_data['buy_price'])}</td><td>{int(tx_data['current_price'])}</td><td>{tx_data['lot']}</td><td>{tx_data['pl_text']}</td></tr>"
-            message_html += f"</table>\n\n<b>{total_pl_text.replace('\\', '')}</b>"
+            cleaned_total_pl = total_pl_text.replace("\\", "")
+            message_html += f"</table>\n\n<b>{cleaned_total_pl}</b>"
             await update.message.reply_text(message_html, parse_mode="HTML")
 
         conn.close()
@@ -25480,11 +25483,14 @@ async def analyze_report1(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Hitung P/L
             pl = (current_price - avg_buy_price) * total_lot * 100
             total_pl += pl
-            pl_text = f"{'🟢 \\+' if pl >= 0 else '🔴 \\-'}Rp {abs(pl):,.2f}".replace(",", "\\,").replace(".", "\\.")
+            # Build the PL text without using backslashes directly in f-string
+            prefix = "🟢 +" if pl >= 0 else "🔴 -"
+            pl_text = f"{prefix}Rp {abs(pl):,.2f}".replace("+", "\\+").replace("-", "\\-").replace(",", "\\,").replace(".", "\\.")
 
             # Format baris tabel
+            escaped_ticker = ticker.replace('_', '\\_')
             table += (
-                f"\\| {ticker.replace('_', '\\_')} \\| {total_lot} \\| "
+                f"\\| {escaped_ticker} \\| {total_lot} \\| "
                 f"{avg_buy_price:,.2f}".replace(",", "\\,").replace(".", "\\.") + " \\| "
                 f"{current_price:,.2f}".replace(",", "\\,").replace(".", "\\.") + " \\| "
                 f"{pl_text} \\|\n"
@@ -25752,8 +25758,10 @@ async def analyze_report_date1(update: Update, context: ContextTypes.DEFAULT_TYP
 
         # Initialize message parts for splitting if needed
         messages = []
-        current_message = f"📊 *Analisa Laporan per Tanggal ({active_account.replace('_', '\\_').replace('(', '\\(').replace(')', '\\)')})*\n\n" \
-                         f"Per tanggal: {date.replace('-', '\\-')}\n\n" \
+        escaped_account = active_account.replace('_', '\\_').replace('(', '\\(').replace(')', '\\)')
+        escaped_date = date.replace('-', '\\-')
+        current_message = f"📊 *Analisa Laporan per Tanggal ({escaped_account})*\n\n" \
+                         f"Per tanggal: {escaped_date}\n\n" \
                          f"| Saham | Tanggal Beli | Harga Beli \\(Rp\\) | Harga pada Tanggal \\(Rp\\) | Lot | P/L \\(Rp\\) |\n" \
                          f"|-------|--------------|---------------------|-----------------------------|-----|--------------|\n"
         total_pl = 0
@@ -25770,8 +25778,8 @@ async def analyze_report_date1(update: Update, context: ContextTypes.DEFAULT_TYP
                 price_at_date = float(price_data[0]) if price_data else buy_price
 
                 pl = (price_at_date - buy_price) * lot * 100
-                total_pl += pl
-                pl_text = f"{'🟢 \\+' if pl >= 0 else '🔴 \\-'}Rp {int(abs(pl))}"
+            total_pl += pl
+            pl_text = f"{'🟢 +' if pl >= 0 else '🔴 -'}Rp {int(abs(pl))}"
 
                 # Escape special characters for MarkdownV2
                 for char in "|_*.[](){}<>#+-=:!":
@@ -25973,8 +25981,9 @@ async def analyze_report_index(update: Update, context: ContextTypes.DEFAULT_TYP
         transactions = data["accounts"][active_account]["transactions"]
 
         if not transactions:
+            escaped_account = active_account.replace('_', '\\_')
             await update.message.reply_text(
-                f"Belum ada transaksi pembelian saham di {active_account.replace('_', '\\_')}\\.",
+                f"Belum ada transaksi pembelian saham di {escaped_account}\\.",
                 parse_mode="MarkdownV2"
             )
             return
@@ -26032,7 +26041,8 @@ async def analyze_report_index(update: Update, context: ContextTypes.DEFAULT_TYP
             total_pl_text = total_pl_text.replace(char, f"\\{char}")
 
         # Debug: Log pesan sebelum dikirim
-        message = f"📊 *Analisa Laporan Posisi ({active_account.replace('_', '\\_')})*\n\n" \
+        escaped_account = active_account.replace('_', '\\_')
+        message = f"📊 *Analisa Laporan Posisi ({escaped_account})*\n\n" \
                   f"Per tanggal: {date}\n\n" \
                   f"{table}\n**{total_pl_text}**"
         logging.info(f"Sending message: {message}")
@@ -26071,8 +26081,9 @@ async def sell_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
         transactions = account["transactions"]
 
         if not transactions:
+            escaped_account = active_account.replace('_', '\\_')
             await update.message.reply_text(
-                f"Belum ada transaksi pembelian saham di {active_account.replace('_', '\\_')}\\.",
+                f"Belum ada transaksi pembelian saham di {escaped_account}\\.",
                 parse_mode="MarkdownV2"
             )
             return
@@ -26138,8 +26149,9 @@ async def sell_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 updated_transactions.append(tx)
 
         if not transaction_data and not failed_tickers:
+            escaped_account = active_account.replace('_', '\\_')
             await update.message.reply_text(
-                f"Tidak ada transaksi terbuka di {active_account.replace('_', '\\_')}\\.",
+                f"Tidak ada transaksi terbuka di {escaped_account}\\.",
                 parse_mode="MarkdownV2"
             )
             conn.close()
@@ -26166,7 +26178,8 @@ async def sell_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
         balance_str = f"{int(account['balance'])}"  # Use integer to avoid decimal escaping
 
         # Build MarkdownV2 message
-        message = f"✅ *Penjualan Semua Saham ({active_account.replace('_', '\\_')})*\n\n" \
+        escaped_account = active_account.replace('_', '\\_')
+        message = f"✅ *Penjualan Semua Saham ({escaped_account})*\n\n" \
                   f"Per tanggal: 2025\\-06\\-13 11\\:01 WIB\n\n" \
                   f"{table}\n**{total_pl_text}**\n\n" \
                   f"Saldo baru: Rp {balance_str}"
@@ -26405,8 +26418,10 @@ async def analyze_report_date2(update: Update, context: ContextTypes.DEFAULT_TYP
             highest_pl_text = highest_pl_text.replace(char, f"\\{char}")
             lowest_pl_text = lowest_pl_text.replace(char, f"\\{char}")
 
-        summary_message = f"📊 *Analisa Laporan per Tanggal ({active_account.replace('_', '\\_').replace('(', '\\(').replace(')', '\\)')})*\n\n" \
-                          f"Per tanggal: {date.replace('-', '\\-')}\n\n" \
+        escaped_account = active_account.replace('_', '\\_').replace('(', '\\(').replace(')', '\\)')
+        escaped_date = date.replace('-', '\\-')
+        summary_message = f"📊 *Analisa Laporan per Tanggal ({escaped_account})*\n\n" \
+                          f"Per tanggal: {escaped_date}\n\n" \
                           f"**{total_pl_text}**\n" \
                           f"{highest_pl_text}\n" \
                           f"{lowest_pl_text}\n\n" \
@@ -26630,8 +26645,10 @@ async def analyze_report_image(update: Update, context: ContextTypes.DEFAULT_TYP
 
         # Buat laporan ringkasan
         total_pl_text = f"{'🟢 Total Keuntungan' if total_pl >= 0 else '🔴 Total Kerugian'} \\: Rp {int(abs(total_pl)):,}"
-        summary_message = f"📊 *Analisa Laporan per Tanggal ({active_account.replace('_', '\\_').replace('(', '\\(').replace(')', '\\)')})*\n\n" \
-                          f"Per tanggal: {date.replace('-', '\\-')} {current_time}\n\n" \
+        escaped_account = active_account.replace('_', '\\_').replace('(', '\\(').replace(')', '\\)')
+        escaped_date = date.replace('-', '\\-')
+        summary_message = f"📊 *Analisa Laporan per Tanggal ({escaped_account})*\n\n" \
+                          f"Per tanggal: {escaped_date} {current_time}\n\n" \
                           f"**{total_pl_text}**\n\n" \
                           f"Lihat tabel terlampir untuk detail transaksi\\."
 
@@ -27377,8 +27394,9 @@ async def buy_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Validasi ticker di stock_data.db
         if not is_valid_ticker(ticker):
+            escaped_ticker = ticker.replace('_', '\\_')
             await update.message.reply_text(
-                f"Ticker {ticker.replace('_', '\\_')} tidak valid\\.",
+                f"Ticker {escaped_ticker} tidak valid\\.",
                 parse_mode="MarkdownV2"
             )
             return
@@ -27396,8 +27414,9 @@ async def buy_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 raise ValueError(f"Harga tidak realistis: Rp {current_price:,.2f}")
         except Exception as e:
             logger.error(f"Error mengambil harga {ticker} dari yfinance: {str(e)}")
+            escaped_ticker = ticker.replace('_', '\\_')
             await update.message.reply_text(
-                f"Tidak dapat mengambil harga terkini untuk {ticker.replace('_', '\\_')}\\.",
+                f"Tidak dapat mengambil harga terkini untuk {escaped_ticker}\\.",
                 parse_mode="MarkdownV2"
             )
             return
@@ -27418,8 +27437,9 @@ async def buy_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if account["balance"] < total_with_fee:
             balance_str = f"{account['balance']:,.2f}".replace(",", "\\,").replace(".", "\\.")
             total_with_fee_str = f"{total_with_fee:,.2f}".replace(",", "\\,").replace(".", "\\.")
+            escaped_account = active_account.replace('_', '\\_')
             await update.message.reply_text(
-                f"Saldo tidak cukup di akun {active_account.replace('_', '\\_')}\\. Saldo: Rp {balance_str}, Biaya: Rp {total_with_fee_str}",
+                f"Saldo tidak cukup di akun {escaped_account}\\. Saldo: Rp {balance_str}, Biaya: Rp {total_with_fee_str}",
                 parse_mode="MarkdownV2"
             )
             return
@@ -27464,9 +27484,11 @@ async def buy_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
         buy_date = datetime.now(pytz.timezone('Asia/Jakarta')).strftime('%Y-%m-%d %H:%M:%S')
 
         await update.message.reply_text(
+            escaped_account = active_account.replace('_', '\\_')
+            escaped_ticker = ticker.replace('_', '\\_')
             f"✅ *Transaksi Beli Berhasil*\n\n"
-            f"Akun: {active_account.replace('_', '\\_')}\n"
-            f"Saham: {ticker.replace('_', '\\_')}\n"
+            f"Akun: {escaped_account}\n"
+            f"Saham: {escaped_ticker}\n"
             f"Lot: {lot}\n"
             f"Harga Beli: Rp {current_price_str}\n"
             f"Total Biaya: Rp {total_cost_str}\n"
@@ -27513,8 +27535,9 @@ async def sell_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Validasi ticker di stock_data.db
         if not is_valid_ticker(ticker):
+            escaped_ticker = ticker.replace('_', '\\_')
             await update.message.reply_text(
-                f"Ticker {ticker.replace('_', '\\_')} tidak valid\\.",
+                f"Ticker {escaped_ticker} tidak valid\\.",
                 parse_mode="MarkdownV2"
             )
             return
@@ -27532,8 +27555,9 @@ async def sell_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 raise ValueError(f"Harga tidak realistis: Rp {current_price:,.2f}")
         except Exception as e:
             logger.error(f"Error mengambil harga {ticker} dari yfinance: {str(e)}")
+            escaped_ticker = ticker.replace('_', '\\_')
             await update.message.reply_text(
-                f"Tidak dapat mengambil harga terkini untuk {ticker.replace('_', '\\_')}\\.",
+                f"Tidak dapat mengambil harga terkini untuk {escaped_ticker}\\.",
                 parse_mode="MarkdownV2"
             )
             return
@@ -27554,8 +27578,9 @@ async def sell_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 open_transactions.append(tx)
 
         if available_lot < lot:
+            escaped_ticker = ticker.replace('_', '\\_')
             await update.message.reply_text(
-                f"Anda tidak memiliki cukup lot {ticker.replace('_', '\\_')}\\. Lot tersedia: {available_lot}\\.",
+                f"Anda tidak memiliki cukup lot {escaped_ticker}\\. Lot tersedia: {available_lot}\\.",
                 parse_mode="MarkdownV2"
             )
             return
@@ -27624,9 +27649,11 @@ async def sell_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sell_date = datetime.now(pytz.timezone('Asia/Jakarta')).strftime('%Y-%m-%d %H:%M:%S')
 
         await update.message.reply_text(
+            escaped_account = active_account.replace('_', '\\_')
+            escaped_ticker = ticker.replace('_', '\\_')
             f"✅ *Transaksi Jual Berhasil*\n\n"
-            f"Akun: {active_account.replace('_', '\\_')}\n"
-            f"Saham: {ticker.replace('_', '\\_')}\n"
+            f"Akun: {escaped_account}\n"
+            f"Saham: {escaped_ticker}\n"
             f"Lot: {lot}\n"
             f"Harga Jual: Rp {current_price_str}\n"
             f"Total Penerimaan: Rp {total_revenue_str}\n"
@@ -27697,8 +27724,9 @@ async def reset_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text(
             f"✅ *Semua akun telah direset*\\.\n\n"
             f"Saldo per akun: Rp {formatted_balance}\n"
+            escaped_account = active_account.replace('_', '\\_')
             f"Semua transaksi dihapus\\.\n"
-            f"Akun aktif: {active_account.replace('_', '\\_')}",
+            f"Akun aktif: {escaped_account}",
             parse_mode="MarkdownV2"
         )
         logger.info(f"User {user_id} berhasil mereset semua akun ke saldo Rp {DEFAULT_BALANCE:,.2f}")

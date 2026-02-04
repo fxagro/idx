@@ -13,3 +13,4 @@ build/
 # cache
 .cache/
 .tmp/
+db/stock.sql

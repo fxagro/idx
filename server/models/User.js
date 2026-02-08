@@ -6,7 +6,7 @@ class User {
   static async findById(id) {
     try {
       const { rows } = await pool.query(
-        'SELECT id, email, name, role, subscription_expiry, api_usage, api_limit, ai_quota, created_at FROM users WHERE id = $1',
+        'SELECT id, email, role, subscription_expiry, api_usage, api_limit, ai_quota, created_at FROM users WHERE id = $1',
         [id]
       );
       return rows[0] || null;

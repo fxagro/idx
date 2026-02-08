@@ -804,6 +804,102 @@ router.post('/revoke', async (req, res) => {
 
     res.status(500).json(createErrorResponse('An unexpected error occurred during token revocation', 500));
   }
-});
+ });
 
-module.exports = router;
+ // POST /auth/update-profile - Update user profile
+ router.post('/update-profile', async (req, res) => {
+   const startTime = Date.now();
+   let requestId = Math.random().toString(36).substring(7);
+
+   try {
+     logger.info(`[${requestId}] 🔄 Update profile request started`);
+
+     // Check if request body exists
+     if (!req.body) {
+       logger.warn(`[${requestId}] ❌ Missing request body`);
+       return res.status(400).json(createErrorResponse('Request body is required', 400));
+     }
+
+     // Get user from token
+     const authHeader = req.headers.authorization;
+     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+       logger.warn(`[${requestId}] ❌ No authorization token provided`);
+       return res.status(401).json(createErrorResponse('Authorization token required', 401));
+     }
+
+     const token = authHeader.split(' ')[1];
+     let decoded;
+     try {
+       decoded = jwt.verify(token, JWT_SECRET);
+       logger.info(`[${requestId}] ✅ Token verified for user: ${decoded.email}`);
+     } catch (jwtError) {
+       logger.warn(`[${requestId}] ❌ Invalid token:`, jwtError.message);
+       return res.status(401).json(createErrorResponse('Invalid or expired token', 401));
+     }
+
+     // Validate request body
+     const schema = Joi.object({
+       email: Joi.string().email().optional(),
+       username: Joi.string().min(1).max(100).optional()
+     });
+
+     const { error, value } = schema.validate(req.body);
+     if (error) {
+       logger.warn(`[${requestId}] ❌ Validation failed: ${error.details[0].message}`);
+       return res.status(400).json(createErrorResponse(
+         `Validation error: ${error.details[0].message}`,
+         400,
+         { reason: 'validation_error', field: error.details[0].path[0] }
+       ));
+     }
+
+     logger.info(`[${requestId}] ✅ Request validation successful`);
+
+     // Build update query dynamically
+     const updates = [];
+     const values = [];
+     let paramIndex = 1;
+
+     if (value.email) {
+       updates.push(`email = $${paramIndex}`);
+       values.push(value.email);
+       paramIndex++;
+     }
+
+     if (updates.length === 0) {
+       logger.warn(`[${requestId}] ❌ No valid fields to update`);
+       return res.status(400).json(createErrorResponse('No valid fields to update', 400));
+     }
+
+     values.push(decoded.id);
+     const updateQuery = `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramIndex}`;
+
+     logger.info(`[${requestId}] 📝 Executing update query`);
+     await pool.query(updateQuery, values);
+
+     logger.info(`[${requestId}] ✅ Profile updated successfully for user: ${decoded.email}`);
+
+     res.json({
+       success: true,
+       message: 'Profile updated successfully',
+       data: {
+         user: {
+           id: decoded.id,
+           email: value.email || decoded.email
+         }
+       }
+     });
+
+   } catch (error) {
+     const processingTime = Date.now() - startTime;
+     logger.error(`[${requestId}] 💥 Unexpected update profile error (${processingTime}ms):`, {
+       message: error.message,
+       stack: error.stack,
+       code: error.code
+     });
+
+     res.status(500).json(createErrorResponse('An unexpected error occurred during profile update', 500));
+   }
+ });
+
+ module.exports = router;

@@ -11,7 +11,8 @@ router.get('/summary', async (req, res) => {
   try {
     console.log(`[Dashboard] Fetching dashboard summary for user ${req.user.id}`);
 
-    const summary = await dashboardService.getDashboardSummary(req.user.id);
+    // Pass both userId and userEmail to the service
+    const summary = await dashboardService.getDashboardSummary(req.user.id, req.user.email);
 
     console.log(`[Dashboard] Successfully sent dashboard summary for user ${req.user.id}`);
 

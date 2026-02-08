@@ -21,8 +21,14 @@ async function safeQuery(pool, query, params, fallback = []) {
 }
 
 // Fallback data when database is not available
-const getFallbackDashboardData = () => {
+const getFallbackDashboardData = (userId, userEmail = null) => {
+  const email = userEmail || 'user@example.com';
   return {
+    user: {
+      id: userId || 1,
+      email: email,
+      username: email.split('@')[0]
+    },
     portfolio: {
       stocks: [],
       summary: {
@@ -51,18 +57,63 @@ const getFallbackDashboardData = () => {
 };
 
 // Get comprehensive dashboard summary for a user
-const getDashboardSummary = async (userId) => {
-  try {
-    console.log(`[Dashboard] Fetching dashboard summary for user ${userId}`);
-    let pool;
-    try {
-      pool = getPool();
-    } catch (dbError) {
-      console.warn(`[Dashboard] Failed to get database pool: ${dbError.message}`);
-      // Return fallback data when database is not available
-      return getFallbackDashboardData();
-    }
+const getDashboardSummary = async (userId, tokenEmail = null) => {
+  console.log(`[Dashboard] Fetching dashboard summary for user ${userId}`);
+  let pool;
+  let userData = null;
+  let aiQuota = 10;
 
+  try {
+    pool = getPool();
+  } catch (dbError) {
+    console.warn(`[Dashboard] Failed to get database pool: ${dbError.message}`);
+    pool = null;
+  }
+
+  // Try to fetch user data from database first
+  if (pool) {
+    try {
+      const userQuery = 'SELECT id, email FROM users WHERE id = $1';
+      const userResult = await safeQuery(pool, userQuery, [userId]);
+      if (userResult.rows[0]) {
+        userData = {
+          id: userResult.rows[0].id,
+          email: userResult.rows[0].email,
+          username: userResult.rows[0].email.split('@')[0]
+        };
+        console.log(`[Dashboard] User data fetched from database:`, userData);
+      } else {
+        console.warn(`[Dashboard] User not found in database for ID: ${userId}`);
+      }
+
+      const quotaQuery = 'SELECT ai_quota FROM users WHERE id = $1';
+      const quotaResult = await safeQuery(pool, quotaQuery, [userId]);
+      aiQuota = quotaResult.rows[0]?.ai_quota || 10;
+    } catch (userError) {
+      console.warn(`[Dashboard] Failed to fetch user data: ${userError.message}`);
+      // Continue without database - we'll use token data or fallback
+    }
+  }
+
+  // If userData is still null, try to use token email if provided
+  if (!userData && tokenEmail) {
+    userData = {
+      id: userId,
+      email: tokenEmail,
+      username: tokenEmail.split('@')[0]
+    };
+    console.log(`[Dashboard] Using user data from token:`, userData);
+  } else if (!userData) {
+    // Last resort fallback - should rarely happen
+    userData = {
+      id: userId,
+      email: 'user@example.com',
+      username: 'username'
+    };
+    console.warn(`[Dashboard] Using hardcoded fallback user data`);
+  }
+
+  try {
     // Get portfolio data with current prices
     const portfolioQuery = `
       SELECT
@@ -223,59 +274,59 @@ const getDashboardSummary = async (userId) => {
         ((parseFloat(stock.price) - parseFloat(stock.previous_price)) / parseFloat(stock.previous_price)) * 100 : 0
     }));
 
-    // Get IHSG historical data for chart (last 30 days)
-    const ihsgChartQuery = `
-      SELECT
-        "Tanggal Perdagangan Terakhir" as date,
-        "Penutupan" as price
-      FROM index_data
-      WHERE "Kode Indeks" = 'IHSG'
-        AND "Tanggal Perdagangan Terakhir" >= CURRENT_DATE - INTERVAL '30 days'
-      ORDER BY "Tanggal Perdagangan Terakhir"
-    `;
+     // Get IHSG historical data for chart (last 30 days)
+     const ihsgChartQuery = `
+       SELECT
+         "Tanggal Perdagangan Terakhir" as date,
+         "Penutupan" as price
+       FROM index_data
+       WHERE "Kode Indeks" = 'IHSG'
+         AND "Tanggal Perdagangan Terakhir" >= CURRENT_DATE - INTERVAL '30 days'
+       ORDER BY "Tanggal Perdagangan Terakhir"
+     `;
 
-    const ihsgChartResult = await safeQuery(pool, ihsgChartQuery, []);
-    const ihsgChartData = ihsgChartResult.rows.map(row => ({
-      date: row.date,
-      price: parseFloat(row.price) || 0
-    }));
+     const ihsgChartResult = await safeQuery(pool, ihsgChartQuery, []);
+     const ihsgChartData = ihsgChartResult.rows.map(row => ({
+       date: row.date,
+       price: parseFloat(row.price) || 0
+     }));
 
-    // Get user's AI quota
-    const quotaQuery = 'SELECT ai_quota FROM users WHERE id = $1';
-    const quotaResult = await safeQuery(pool, quotaQuery, [userId]);
-    const aiQuota = quotaResult.rows[0]?.ai_quota || 10;
+     console.log(`[Dashboard] Successfully fetched dashboard data for user ${userId}`);
 
-    console.log(`[Dashboard] Successfully fetched dashboard data for user ${userId}`);
-
-    return {
-      portfolio: {
-        stocks: portfolio,
-        summary: {
-          total_value: Math.round(totalValue * 100) / 100,
-          total_investment: Math.round(totalInvestment * 100) / 100,
-          total_gain_loss: Math.round(totalGainLoss * 100) / 100,
-          total_gain_loss_percent: Math.round(totalGainLossPercent * 100) / 100,
-          top_performers: top3Performers
-        }
-      },
-      watchlist: watchlist,
-      transactions: transactions,
-      market_data: {
-        indices: indices,
-        trending: trending,
-        ihsg_chart: ihsgChartData
-      },
-      ai_quota: {
-        remaining: aiQuota,
-        used: 10 - aiQuota // Assuming default quota of 10
-      }
-    };
+     return {
+       user: {
+         id: userData?.id || userId,
+         email: userData?.email || 'user@example.com',
+         username: userData?.username || 'username'
+       },
+       portfolio: {
+         stocks: portfolio,
+         summary: {
+           total_value: Math.round(totalValue * 100) / 100,
+           total_investment: Math.round(totalInvestment * 100) / 100,
+           total_gain_loss: Math.round(totalGainLoss * 100) / 100,
+           total_gain_loss_percent: Math.round(totalGainLossPercent * 100) / 100,
+           top_performers: top3Performers
+         }
+       },
+       watchlist: watchlist,
+       transactions: transactions,
+       market_data: {
+         indices: indices,
+         trending: trending,
+         ihsg_chart: ihsgChartData
+       },
+       ai_quota: {
+         remaining: aiQuota,
+         used: 10 - aiQuota // Assuming default quota of 10
+       }
+     };
 
   } catch (error) {
     console.error(`[Dashboard] Error fetching dashboard summary for user ${userId}:`, error);
     // Return fallback data instead of throwing error to prevent dashboard from crashing
     console.warn(`[Dashboard] Returning fallback data due to error`);
-    return getFallbackDashboardData();
+    return getFallbackDashboardData(userId, tokenEmail);
   }
 };
 

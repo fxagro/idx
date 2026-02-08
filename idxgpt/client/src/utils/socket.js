@@ -6,14 +6,26 @@ class SocketService {
     this.subscribers = new Map();
   }
 
-  connect(serverUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000') {
+  connect(serverUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin) {
     if (this.socket?.connected) {
       return this.socket;
     }
 
-    this.socket = io(serverUrl, {
+    // Determine the correct URL based on current environment
+    let url = serverUrl;
+    
+    // If we're in production and no explicit URL is set, use the current origin
+    if (!import.meta.env.VITE_SOCKET_URL && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      url = window.location.origin;
+    }
+
+    this.socket = io(url, {
       transports: ['websocket', 'polling'],
       autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      timeout: 10000,
     });
 
     this.socket.on('connect', () => {
@@ -25,7 +37,8 @@ class SocketService {
     });
 
     this.socket.on('connect_error', (error) => {
-      console.error('🔌 WebSocket connection error:', error);
+      console.warn('🔌 WebSocket connection error (non-critical):', error.message);
+      // Don't throw error - allow app to continue without WebSocket
     });
 
     return this.socket;
@@ -41,7 +54,7 @@ class SocketService {
 
   subscribeToStock(symbol, market = 'idx', callback) {
     if (!this.socket?.connected) {
-      console.warn('Socket not connected');
+      console.warn('Socket not connected, skipping subscription');
       return;
     }
 
@@ -54,19 +67,23 @@ class SocketService {
     this.subscribers.get(key).add(callback);
 
     // Subscribe to price updates
-    this.socket.emit('subscribe_stock', { symbol, market });
-    
-    // Listen for price updates
-    this.socket.on('price_update', (data) => {
-      if (data.symbol === symbol) {
-        const callbacks = this.subscribers.get(key);
-        if (callbacks) {
-          callbacks.forEach(cb => cb(data));
+    try {
+      this.socket.emit('subscribe_stock', { symbol, market });
+      
+      // Listen for price updates
+      this.socket.on('price_update', (data) => {
+        if (data.symbol === symbol) {
+          const callbacks = this.subscribers.get(key);
+          if (callbacks) {
+            callbacks.forEach(cb => cb(data));
+          }
         }
-      }
-    });
+      });
 
-    console.log(`📊 Subscribed to ${symbol} (${market})`);
+      console.log(`📊 Subscribed to ${symbol} (${market})`);
+    } catch (error) {
+      console.warn('Failed to subscribe to stock:', error.message);
+    }
   }
 
   unsubscribeFromStock(symbol, market = 'idx', callback = null) {
@@ -95,12 +112,16 @@ class SocketService {
 
   onMarketSummary(callback) {
     if (!this.socket?.connected) {
-      console.warn('Socket not connected');
+      console.warn('Socket not connected, skipping market summary subscription');
       return;
     }
 
-    this.socket.on('market_summary', callback);
-    this.socket.emit('get_market_summary');
+    try {
+      this.socket.on('market_summary', callback);
+      this.socket.emit('get_market_summary');
+    } catch (error) {
+      console.warn('Failed to subscribe to market summary:', error.message);
+    }
   }
 
   offMarketSummary(callback) {

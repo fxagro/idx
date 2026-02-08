@@ -512,7 +512,7 @@ export default function Bandarmologi() {
     if (!row.net_vol) return '-';
     const baseValue = row.net_vol > 0 ? row.buy_avg || 0 : row.sell_avg || 0;
     const netVal = row.net_vol * baseValue;
-    return netVal >= 1000000 ? `${(netVal / 1000000).toFixed(2)}M` : netVal.toLocaleString();
+    return netVal >= 1000000 ? `${(netVal / 1000000).toFixed(2)}M` : (netVal?.toLocaleString() || '0');
   };
 
   // Prepare chart data - filter out invalid brokers

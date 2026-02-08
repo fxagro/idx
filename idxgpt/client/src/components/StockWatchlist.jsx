@@ -203,11 +203,11 @@ const StockWatchlist = ({ onSelectStock }) => {
             >
               <div>
                 <div className="font-medium">{stock.symbol}</div>
-                <div className="text-xs text-gray-600">Vol: {stock.volume.toLocaleString()}</div>
+                <div className="text-xs text-gray-600">Vol: {stock.volume?.toLocaleString() || '0'}</div>
               </div>
               <div className="text-right">
                 <div className="text-sm font-medium">
-                  Rp {stock.price.toLocaleString()}
+                  Rp {stock.price?.toLocaleString() || '0'}
                 </div>
                 <div className={`text-xs ${stock.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {stock.change >= 0 ? '+' : ''}{stock.changePercent.toFixed(2)}%

@@ -170,6 +170,7 @@ const StocklistPage = () => {
 
   // Format currency
   const formatCurrency = (amount) => {
+    if (amount === null || amount === undefined || isNaN(amount)) return 'Rp 0';
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
@@ -180,6 +181,12 @@ const StocklistPage = () => {
 
   // Format percentage
   const formatPercentage = (percent) => {
+    if (percent === null || percent === undefined || isNaN(percent)) {
+      return {
+        value: '0.00%',
+        className: 'text-gray-600'
+      };
+    }
     const value = parseFloat(percent);
     return {
       value: `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`,

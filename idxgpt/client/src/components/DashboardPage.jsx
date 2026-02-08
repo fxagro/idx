@@ -343,6 +343,7 @@ const DashboardPage = () => {
 
   // Format currency
   const formatCurrency = (amount) => {
+    if (amount === null || amount === undefined || isNaN(amount)) return 'Rp 0';
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
@@ -353,6 +354,12 @@ const DashboardPage = () => {
 
   // Format percentage
   const formatPercentage = (percent) => {
+    if (percent === null || percent === undefined || isNaN(percent)) {
+      return {
+        value: '0.00%',
+        className: 'text-gray-600'
+      };
+    }
     const value = parseFloat(percent);
     return {
       value: `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`,
@@ -596,14 +603,14 @@ const DashboardPage = () => {
                     {subscriptionPlans.map((plan) => (
                       <div key={plan.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                         <div className="flex-1">
-                          <span className="font-medium text-gray-800">{plan.name}</span>
+                          <span className="font-medium text-gray-800">{plan.name || 'Unnamed Plan'}</span>
                           <p className="text-sm text-gray-600">
-                            {plan.benefits?.join(', ') || `Kuota AI ${plan.quota}x/bulan`}
+                            {plan.benefits?.join(', ') || `Kuota AI ${plan.quota || 0}x/bulan`}
                           </p>
                         </div>
                         <div className="text-right">
                           <span className="font-bold text-gray-800">
-                            Rp {plan.price?.toLocaleString('id-ID') || '0'}
+                            Rp {plan.price != null ? plan.price.toLocaleString('id-ID') : '0'}
                           </span>
                           <br />
                           <button
@@ -879,10 +886,12 @@ const DashboardPage = () => {
                       {transactionHistory.map((transaction, index) => (
                         <tr key={index} className="hover:bg-gray-50">
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {new Date(transaction.transaction_date).toLocaleDateString('id-ID')}
+                            {transaction.date || transaction.transaction_date
+                              ? new Date(transaction.date || transaction.transaction_date).toLocaleDateString('id-ID')
+                              : '-'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {transaction.symbol}
+                            {transaction.symbol || '-'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -890,11 +899,11 @@ const DashboardPage = () => {
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-red-100 text-red-800'
                             }`}>
-                              {transaction.type}
+                              {transaction.type || '-'}
                             </span>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                            {transaction.quantity.toLocaleString('id-ID')}
+                            {transaction.quantity != null ? transaction.quantity.toLocaleString('id-ID') : '0'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
                             {formatCurrency(transaction.price)}
@@ -1477,15 +1486,15 @@ const DashboardPage = () => {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">{t('dashboard.subscription.plan', 'Plan')}:</span>
-                    <span className="font-medium text-gray-800">{selectedPlan.name}</span>
+                    <span className="font-medium text-gray-800">{selectedPlan.name || 'Unnamed Plan'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">{t('dashboard.subscription.amount', 'Amount')}:</span>
-                    <span className="font-medium text-gray-800">Rp {selectedPlan.price?.toLocaleString('id-ID')}</span>
+                    <span className="font-medium text-gray-800">Rp {selectedPlan.price != null ? selectedPlan.price.toLocaleString('id-ID') : '0'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">{t('dashboard.subscription.quota', 'AI Quota')}:</span>
-                    <span className="font-medium text-gray-800">{selectedPlan.quota}x</span>
+                    <span className="font-medium text-gray-800">{selectedPlan.quota || 0}x</span>
                   </div>
                 </div>
               </div>

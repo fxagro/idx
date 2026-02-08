@@ -103,6 +103,7 @@ export default function MarketOverview() {
   };
 
   const formatNumber = (num) => {
+    if (num === null || num === undefined || isNaN(num)) return '0';
     if (num >= 1e12) return (num / 1e12).toFixed(1) + 'T';
     if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B';
     if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
@@ -111,6 +112,7 @@ export default function MarketOverview() {
   };
 
   const formatCurrency = (num) => {
+    if (num === null || num === undefined || isNaN(num)) return 'Rp 0';
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',

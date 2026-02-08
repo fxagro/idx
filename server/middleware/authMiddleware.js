@@ -7,7 +7,7 @@ const logAuth = (operation, details, requestId = null) => {
 };
 
 // Enhanced middleware to verify JWT token with comprehensive logging and edge cases
-const authenticateToken = (req, res, next) => {
+const authenticateToken = async (req, res, next) => {
   const requestId = req.requestId;
   logAuth('AUTHENTICATE_TOKEN_START', {
     method: req.method,
@@ -104,7 +104,7 @@ const authenticateToken = (req, res, next) => {
     }
 
     // Verify token and get user data
-    const user = authService.getUserFromToken(token, requestId);
+    const user = await authService.getUserFromToken(token, requestId);
 
     logAuth('AUTHENTICATE_TOKEN_SUCCESS', {
       userId: user.id,
@@ -204,7 +204,7 @@ const requireAdmin = requireRole(['admin']);
 const requireUserOrAdmin = requireRole(['user', 'admin']);
 
 // Enhanced optional authentication middleware with logging
-const optionalAuth = (req, res, next) => {
+const optionalAuth = async (req, res, next) => {
   const requestId = req.requestId;
   logAuth('OPTIONAL_AUTH_START', {
     hasAuthHeader: !!req.headers.authorization,
@@ -221,7 +221,7 @@ const optionalAuth = (req, res, next) => {
         requestId
       }, requestId);
 
-      const user = authService.getUserFromToken(token, requestId);
+      const user = await authService.getUserFromToken(token, requestId);
       req.user = user;
 
       logAuth('OPTIONAL_AUTH_SUCCESS', {

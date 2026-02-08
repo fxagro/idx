@@ -280,7 +280,7 @@ const StockChart = ({ symbol, market = 'idx' }) => {
       {/* Volume info */}
       {currentPrice?.volume && (
         <div className="mt-4 text-sm text-gray-600">
-          {t('charts.volume')}: {currentPrice.volume.toLocaleString()} {t('charts.shares')}
+          {t('charts.volume')}: {currentPrice.volume?.toLocaleString() || '0'} {t('charts.shares')}
         </div>
       )}
     </div>

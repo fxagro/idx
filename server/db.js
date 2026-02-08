@@ -41,4 +41,4 @@ const db = {
 };
 
 // Export as pool for backward compatibility
-module.exports = { pool: db };
+module.exports = { pool: db, getPool };

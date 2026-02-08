@@ -284,6 +284,35 @@ app.use("/api", apiRoutes);
 
 logger.info('🚀 All API routes mounted successfully');
 
+// Serve static files from the client build
+const clientPath = path.join(__dirname, '../client/dist');
+if (fs.existsSync(clientPath)) {
+  app.use(express.static(clientPath));
+  logger.info('✅ Client static files mounted from:', clientPath);
+} else {
+  logger.warn('⚠️ Client build not found at:', clientPath);
+}
+
+// SPA fallback - serve index.html for client-side routing
+// This must come AFTER API routes
+app.get('*', (req, res, next) => {
+  // Don't interfere with API routes
+  if (req.path.startsWith('/api/') || req.path.startsWith('/socket.io/')) {
+    return next();
+  }
+  
+  // Check if client build exists
+  if (fs.existsSync(clientPath)) {
+    const indexPath = path.join(clientPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+  }
+  
+  // If no client build, show a message
+  res.send('IDX Server API is running. Frontend build not found.');
+});
+
 // Global error handler (must be last)
 app.use(errorHandler);
 

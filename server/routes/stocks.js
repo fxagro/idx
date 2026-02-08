@@ -3119,6 +3119,176 @@ router.get("/idx/top-losers", async (req, res) => {
   }
 });
 
+// GET /api/stocks/list - Get list of stocks with search and pagination
+router.get("/list", async (req, res) => {
+  const requestId = Math.random().toString(36).substring(7);
+  const { search = '', page = 1, limit = 50, market = 'idx' } = req.query;
+  
+  console.log(`[${requestId}] 📊 Fetching stocks list: search=${search}, page=${page}, limit=${limit}, market=${market}`);
+  
+  try {
+    const client = await stockPool.connect();
+    console.log(`[${requestId}] ✅ Database connected successfully`);
+    
+    const offset = (page - 1) * limit;
+    
+    let query, params;
+    if (search) {
+      query = `
+        SELECT DISTINCT "Kode Saham" as symbol, "Nama Perusahaan" as name
+        FROM saham_data
+        WHERE ("Kode Saham" ILIKE $1 OR "Nama Perusahaan" ILIKE $1)
+        ORDER BY "Kode Saham"
+        LIMIT $2 OFFSET $3
+      `;
+      params = [`%${search}%`, parseInt(limit), offset];
+    } else {
+      query = `
+        SELECT DISTINCT "Kode Saham" as symbol, "Nama Perusahaan" as name
+        FROM saham_data
+        ORDER BY "Kode Saham"
+        LIMIT $1 OFFSET $2
+      `;
+      params = [parseInt(limit), offset];
+    }
+    
+    console.log(`[${requestId}] 🔍 Executing query...`);
+    const result = await client.query(query, params);
+    console.log(`[${requestId}] ✅ Query executed successfully, found ${result.rows.length} stocks`);
+    
+    // Get total count for pagination
+    let countQuery, countParams;
+    if (search) {
+      countQuery = `
+        SELECT COUNT(DISTINCT "Kode Saham") as total
+        FROM saham_data
+        WHERE ("Kode Saham" ILIKE $1 OR "Nama Perusahaan" ILIKE $1)
+      `;
+      countParams = [`%${search}%`];
+    } else {
+      countQuery = `
+        SELECT COUNT(DISTINCT "Kode Saham") as total
+        FROM saham_data
+      `;
+      countParams = [];
+    }
+    
+    const countResult = await client.query(countQuery, countParams);
+    const total = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(total / limit);
+    
+    client.release();
+    
+    const stocks = result.rows.map(row => ({
+      symbol: row.symbol,
+      name: row.name
+    }));
+    
+    console.log(`[${requestId}] 📤 Returning ${stocks.length} stocks (page ${page}/${totalPages}) to client`);
+    
+    res.json({
+      success: true,
+      source: 'PostgreSQL Database',
+      data: stocks,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: total,
+        totalPages: totalPages
+      }
+    });
+    
+  } catch (error) {
+    console.error(`[${requestId}] ❌ Error fetching stocks list:`, {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      stack: error.stack
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch stocks list",
+      message: error.message,
+      requestId: requestId
+    });
+  }
+});
+
+// GET /api/stocks/indices - Get market indices data
+router.get("/indices", async (req, res) => {
+  const requestId = Math.random().toString(36).substring(7);
+  
+  console.log(`[${requestId}] 📊 Fetching market indices data...`);
+  
+  try {
+    // Mock data for market indices (can be expanded to fetch from real API)
+    const indices = [
+      {
+        symbol: 'IHSG',
+        name: 'Indeks Harga Saham Gabungan',
+        value: 7150.25,
+        change: 25.75,
+        changePercent: 0.36,
+        volume: 15250000000,
+        market: 'IDX'
+      },
+      {
+        symbol: 'LQ45',
+        name: 'Indeks LQ45',
+        value: 1050.75,
+        change: -10.25,
+        changePercent: -0.96,
+        volume: 8500000000,
+        market: 'IDX'
+      },
+      {
+        symbol: 'LQ30',
+        name: 'Indeks LQ30',
+        value: 1250.50,
+        change: 15.25,
+        changePercent: 1.24,
+        volume: 7200000000,
+        market: 'IDX'
+      },
+      {
+        symbol: 'JKSE',
+        name: 'Jakarta Composite Index',
+        value: 7145.80,
+        change: 20.30,
+        changePercent: 0.29,
+        volume: 15100000000,
+        market: 'IDX'
+      }
+    ];
+    
+    console.log(`[${requestId}] 📤 Returning ${indices.length} market indices to client`);
+    
+    res.json({
+      success: true,
+      source: 'Mock Data',
+      data: indices
+    });
+    
+  } catch (error) {
+    console.error(`[${requestId}] ❌ Error fetching market indices:`, {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      stack: error.stack
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch market indices",
+      message: error.message,
+      requestId: requestId
+    });
+  }
+});
+
 // GET /api/stocks/idx/dates - Get available trading dates
 router.get("/idx/dates", async (req, res) => {
   const requestId = Math.random().toString(36).substring(7);
@@ -3515,6 +3685,284 @@ router.get("/top-brokers", async (req, res) => {
       warning: 'Database error, using mock data',
       total: mockBrokers.length,
       brokers: mockBrokers
+    });
+  }
+});
+
+// ===== WATCHLIST API ROUTES =====
+
+// GET /api/stocks/watchlist - Get user's watchlist
+router.get("/watchlist", authMiddleware, async (req, res) => {
+  const requestId = Math.random().toString(36).substring(7);
+  const userId = req.user.id;
+  
+  console.log(`[${requestId}] 📋 Fetching watchlist for user ${userId}`);
+  
+  try {
+    // Get user's watchlist from database
+    const query = `
+      SELECT 
+        w.id,
+        w.symbol,
+        w.name,
+        w.created_at,
+        s."Penutupan" as last_price,
+        s."Tanggal Perdagangan Terakhir" as last_price_date
+      FROM watchlists w
+      LEFT JOIN saham_data s ON w.symbol = s."Kode Saham"
+      WHERE w.user_id = $1
+      ORDER BY w.created_at DESC
+    `;
+    
+    const result = await stockPool.query(query, [userId]);
+    console.log(`[${requestId}] ✅ Found ${result.rows.length} items in watchlist`);
+    
+    // Get the latest price for each watchlist item
+    const watchlistWithPrices = await Promise.all(
+      result.rows.map(async (item) => {
+        // Get latest price for this symbol
+        const priceQuery = `
+          SELECT "Penutupan" as close, "Tanggal Perdagangan Terakhir" as date
+          FROM saham_data
+          WHERE "Kode Saham" = $1
+          ORDER BY "Tanggal Perdagangan Terakhir" DESC
+          LIMIT 1
+        `;
+        
+        const priceResult = await stockPool.query(priceQuery, [item.symbol]);
+        
+        return {
+          id: item.id,
+          symbol: item.symbol,
+          name: item.name,
+          addedAt: item.created_at,
+          lastPrice: priceResult.rows[0] ? parseFloat(priceResult.rows[0].close) : null,
+          lastPriceDate: priceResult.rows[0] ? priceResult.rows[0].date : null
+        };
+      })
+    );
+    
+    res.json({
+      success: true,
+      data: watchlistWithPrices,
+      total: watchlistWithPrices.length
+    });
+    
+  } catch (error) {
+    console.error(`[${requestId}] ❌ Error fetching watchlist:`, error.message);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch watchlist",
+      message: error.message
+    });
+  }
+});
+
+// POST /api/stocks/watchlist - Add stock to watchlist
+router.post("/watchlist", authMiddleware, async (req, res) => {
+  const requestId = Math.random().toString(36).substring(7);
+  const userId = req.user.id;
+  const { symbol, name } = req.body;
+  
+  console.log(`[${requestId}] ➕ Adding ${symbol} to watchlist for user ${userId}`);
+  
+  // Validate input
+  if (!symbol) {
+    return res.status(400).json({
+      success: false,
+      error: "Symbol is required"
+    });
+  }
+  
+  const symbolUpper = symbol.toUpperCase();
+  
+  try {
+    // Check if stock already exists in watchlist
+    const checkQuery = `
+      SELECT id FROM watchlists 
+      WHERE user_id = $1 AND symbol = $2
+    `;
+    const checkResult = await stockPool.query(checkQuery, [userId, symbolUpper]);
+    
+    if (checkResult.rows.length > 0) {
+      console.log(`[${requestId}] ⚠️ ${symbolUpper} already in watchlist`);
+      return res.status(400).json({
+        success: false,
+        error: "Stock already in watchlist"
+      });
+    }
+    
+    // Get company name from database if not provided
+    let companyName = name;
+    if (!companyName) {
+      const nameQuery = `
+        SELECT "Nama Perusahaan" as name 
+        FROM saham_data 
+        WHERE "Kode Saham" = $1 
+        LIMIT 1
+      `;
+      const nameResult = await stockPool.query(nameQuery, [symbolUpper]);
+      companyName = nameResult.rows[0]?.name || symbolUpper;
+    }
+    
+    // Insert into watchlist
+    const insertQuery = `
+      INSERT INTO watchlists (user_id, symbol, name, created_at)
+      VALUES ($1, $2, $3, NOW())
+      RETURNING id, symbol, name, created_at
+    `;
+    
+    const result = await stockPool.query(insertQuery, [userId, symbolUpper, companyName]);
+    const watchlistItem = result.rows[0];
+    
+    console.log(`[${requestId}] ✅ Added ${symbolUpper} to watchlist`);
+    
+    res.status(201).json({
+      success: true,
+      message: "Stock added to watchlist",
+      data: {
+        id: watchlistItem.id,
+        symbol: watchlistItem.symbol,
+        name: watchlistItem.name,
+        addedAt: watchlistItem.created_at
+      }
+    });
+    
+  } catch (error) {
+    console.error(`[${requestId}] ❌ Error adding to watchlist:`, error.message);
+    res.status(500).json({
+      success: false,
+      error: "Failed to add stock to watchlist",
+      message: error.message
+    });
+  }
+});
+
+// DELETE /api/stocks/watchlist/:symbol - Remove stock from watchlist
+router.delete("/watchlist/:symbol", authMiddleware, async (req, res) => {
+  const requestId = Math.random().toString(36).substring(7);
+  const userId = req.user.id;
+  const { symbol } = req.params;
+  
+  console.log(`[${requestId}] 🗑️ Removing ${symbol} from watchlist for user ${userId}`);
+  
+  const symbolUpper = symbol.toUpperCase();
+  
+  try {
+    // Delete from watchlist
+    const deleteQuery = `
+      DELETE FROM watchlists 
+      WHERE user_id = $1 AND symbol = $2
+      RETURNING id, symbol, name
+    `;
+    
+    const result = await stockPool.query(deleteQuery, [userId, symbolUpper]);
+    
+    if (result.rows.length === 0) {
+      console.log(`[${requestId}] ⚠️ ${symbolUpper} not found in watchlist`);
+      return res.status(404).json({
+        success: false,
+        error: "Stock not found in watchlist"
+      });
+    }
+    
+    console.log(`[${requestId}] ✅ Removed ${symbolUpper} from watchlist`);
+    
+    res.json({
+      success: true,
+      message: "Stock removed from watchlist",
+      data: {
+        id: result.rows[0].id,
+        symbol: result.rows[0].symbol
+      }
+    });
+    
+  } catch (error) {
+    console.error(`[${requestId}] ❌ Error removing from watchlist:`, error.message);
+    res.status(500).json({
+      success: false,
+      error: "Failed to remove stock from watchlist",
+      message: error.message
+    });
+  }
+});
+
+// GET /api/stocks/virtual/portfolio - Get virtual portfolio (mock for now)
+router.get("/virtual/portfolio", authMiddleware, async (req, res) => {
+  const requestId = Math.random().toString(36).substring(7);
+  const userId = req.user.id;
+  
+  console.log(`[${requestId}] 📊 Fetching virtual portfolio for user ${userId}`);
+  
+  try {
+    // Mock virtual portfolio data for demonstration
+    const mockPortfolio = [
+      {
+        symbol: 'BBCA',
+        name: 'Bank Central Asia Tbk.',
+        shares: 100,
+        averagePrice: 8200,
+        currentPrice: 8500,
+        totalValue: 850000,
+        profitLoss: 30000,
+        profitLossPercent: 3.66
+      },
+      {
+        symbol: 'TLKM',
+        name: 'Telkom Indonesia Tbk.',
+        shares: 200,
+        averagePrice: 3600,
+        currentPrice: 3800,
+        totalValue: 760000,
+        profitLoss: 40000,
+        profitLossPercent: 5.56
+      },
+      {
+        symbol: 'ASII',
+        name: 'Astra International Tbk.',
+        shares: 50,
+        averagePrice: 5000,
+        currentPrice: 5200,
+        totalValue: 260000,
+        profitLoss: 10000,
+        profitLossPercent: 4.00
+      },
+      {
+        symbol: 'BMRI',
+        name: 'Bank Mandiri Tbk.',
+        shares: 75,
+        averagePrice: 6000,
+        currentPrice: 6200,
+        totalValue: 465000,
+        profitLoss: 15000,
+        profitLossPercent: 3.33
+      }
+    ];
+    
+    const totalValue = mockPortfolio.reduce((sum, item) => sum + item.totalValue, 0);
+    const totalProfitLoss = mockPortfolio.reduce((sum, item) => sum + item.profitLoss, 0);
+    
+    console.log(`[${requestId}] ✅ Returning mock virtual portfolio`);
+    
+    res.json({
+      success: true,
+      data: {
+        stocks: mockPortfolio,
+        summary: {
+          totalValue,
+          totalInvested: totalValue - totalProfitLoss,
+          totalProfitLoss,
+          totalProfitLossPercent: ((totalProfitLoss / (totalValue - totalProfitLoss)) * 100).toFixed(2)
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error(`[${requestId}] ❌ Error fetching virtual portfolio:`, error.message);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch virtual portfolio",
+      message: error.message
     });
   }
 });

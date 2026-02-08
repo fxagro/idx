@@ -79,21 +79,38 @@ router.get("/portfolio", async (req, res) => {
     `, [userId]);
 
     const portfolio = portfolioResult.rows;
-    let totalValue = 0;
 
     // Fetch current prices for each holding
-    for (let item of portfolio) {
-      const priceData = await getCurrentPrice(item.symbol);
-      item.current_price = priceData.price;
-      item.current_value = item.qty * priceData.price;
-      item.gain_loss = item.current_value - (item.qty * item.avg_price);
-      item.gain_loss_percent = item.avg_price > 0 ? (item.gain_loss / (item.qty * item.avg_price)) * 100 : 0;
-      totalValue += item.current_value;
-      item.sector = item.sector || 'Unknown';
-      item.company_name = item.company_name || item.symbol;
-    }
+    const formattedPortfolio = await Promise.all(
+      portfolio.map(async item => {
+        const priceData = await getCurrentPrice(item.symbol);
+        const currentPrice = priceData.price;
+        const currentValue = item.qty * currentPrice;
+        const gainLoss = currentValue - (item.qty * item.avg_price);
+        const gainLossPercent = item.avg_price > 0 ? (gainLoss / (item.qty * item.avg_price)) * 100 : 0;
+        
+        return {
+          symbol: item.symbol,
+          name: item.company_name || item.symbol,
+          shares: item.qty,
+          avgPrice: item.avg_price,
+          currentPrice: currentPrice,
+          currentValue: currentValue,
+          gainLoss: gainLoss,
+          gainLossPercent: gainLossPercent,
+          sector: item.sector || 'Unknown'
+        };
+      })
+    );
+    
+    // Calculate total value
+    const totalValue = resolvedPortfolio.reduce((sum, item) => sum + item.currentValue, 0);
 
-    res.json({ portfolio });
+    res.json({ 
+      holdings: formattedPortfolio,
+      totalValue: totalValue,
+      totalGainLoss: formattedPortfolio.reduce((sum, item) => sum + item.gainLoss, 0)
+    });
   } catch (err) {
     console.error("Error fetching virtual portfolio:", err);
     res.status(500).json({ error: "Server error" });

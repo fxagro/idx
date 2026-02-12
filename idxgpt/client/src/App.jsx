@@ -34,10 +34,13 @@ import TopLosersPage from './pages/TopLosersPage';
 import TV from './pages/TV';
 import TradingViewSuperChart from './pages/tvs';
 import About from './pages/About';
+import Stocks from './pages/Stocks';
+import StocklistPage from './components/StocklistPage';
 import FAQ from './pages/FAQ';
 import Blog from './pages/Blog';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
+import TechnicalPage from './pages/TechnicalPage';
 import { useAuth } from './hooks/useAuth.jsx';
 import { ThemeProvider } from './contexts/ThemeContext';
 
@@ -240,6 +243,20 @@ const App = () => {
             <ProtectedRoute>
               <ErrorBoundary>
                 <OpenBBDataExplorer />
+              </ErrorBoundary>
+            </ProtectedRoute>
+          } />
+          <Route path="/technical" element={
+            <ProtectedRoute>
+              <ErrorBoundary>
+                <TechnicalPage />
+              </ErrorBoundary>
+            </ProtectedRoute>
+          } />
+          <Route path="/stocks" element={
+            <ProtectedRoute>
+              <ErrorBoundary>
+                <StocklistPage />
               </ErrorBoundary>
             </ProtectedRoute>
           } />

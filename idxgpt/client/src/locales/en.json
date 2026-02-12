@@ -1421,6 +1421,30 @@
       "content": "Terms & Conditions page. Legal terms and service agreements."
     }
   },
+  "technical": {
+    "title": "Technical Analysis",
+    "subtitle": "Comprehensive technical analysis with real-time charts and indicators",
+    "searchStock": "Search stock...",
+    "refresh": "Refresh",
+    "loadingData": "Loading data...",
+    "tryAgain": "Try Again",
+    "volume": "Volume",
+    "currentVolume": "Current Volume",
+    "averageVolume": "Average Volume",
+    "rsiValue": "RSI Value",
+    "status": "Status",
+    "overbought": "Overbought",
+    "oversold": "Oversold",
+    "neutral": "Neutral",
+    "movingAverages": "Moving Averages",
+    "tradingRecommendations": "Trading Recommendations",
+    "buySignal": "Buy Signal",
+    "buyRecommendation": "Strong buy signal based on technical indicators",
+    "holdSignal": "Hold Signal",
+    "holdRecommendation": "Neutral, hold position",
+    "sellSignal": "Sell Signal",
+    "sellRecommendation": "Strong sell signal based on technical indicators"
+  },
   "openbb": {
     "title": "OpenBB Dashboard",
     "subtitle": "Real-time market data and financial analytics",

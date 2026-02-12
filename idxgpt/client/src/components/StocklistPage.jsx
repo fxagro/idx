@@ -11,10 +11,7 @@ import {
   Title,
   Tooltip,
   Legend,
-  CandlestickController,
-  CandlestickElement,
 } from 'chart.js';
-import { Candlestick } from 'react-chartjs-2';
 import api from '../utils/api';
 
 // Register Chart.js components
@@ -25,9 +22,7 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend,
-  CandlestickController,
-  CandlestickElement
+  Legend
 );
 
 const StocklistPage = () => {

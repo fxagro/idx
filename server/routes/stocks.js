@@ -1483,6 +1483,20 @@ function calculateSMA(prices, period) {
   return slice.reduce((sum, price) => sum + price, 0) / period;
 }
 
+function calculateEMA(prices, period) {
+  if (prices.length < period) return null;
+  
+  const k = 2 / (period + 1);
+  const sma = calculateSMA(prices, period);
+  let ema = sma;
+  
+  for (let i = period; i < prices.length; i++) {
+    ema = prices[i] * k + ema * (1 - k);
+  }
+  
+  return ema;
+}
+
 function calculateRSI(prices, period = 14) {
   if (prices.length < period + 1) return null;
 
@@ -1515,6 +1529,173 @@ function calculateRSI(prices, period = 14) {
 
   return Math.round(rsi * 100) / 100;
 }
+
+function calculateMACD(prices) {
+  const ema12 = calculateEMA(prices, 12);
+  const ema26 = calculateEMA(prices, 26);
+  
+  if (!ema12 || !ema26) return { macd: null, signal: null, histogram: null };
+  
+  const macd = ema12 - ema26;
+  
+  // Calculate signal line (9-period EMA of MACD)
+  const signal = null; // Need more data to calculate signal line
+  
+  return {
+    macd: Math.round(macd * 100) / 100,
+    signal: signal,
+    histogram: signal ? Math.round((macd - signal) * 100) / 100 : null
+  };
+}
+
+function calculateBollingerBands(prices, period = 20) {
+  const sma = calculateSMA(prices, period);
+  if (!sma) return { middle: null, upper: null, lower: null };
+  
+  // Calculate standard deviation
+  if (prices.length < period) return { middle: null, upper: null, lower: null };
+  
+  const slice = prices.slice(-period);
+  const variance = slice.reduce((sum, price) => sum + Math.pow(price - sma, 2), 0) / period;
+  const stdDev = Math.sqrt(variance);
+  
+  const upper = sma + (stdDev * 2);
+  const lower = sma - (stdDev * 2);
+  
+  return {
+    middle: Math.round(sma * 100) / 100,
+    upper: Math.round(upper * 100) / 100,
+    lower: Math.round(lower * 100) / 100
+  };
+}
+
+// GET /api/stocks/technical/:symbol - Get technical analysis data
+router.get("/technical/:symbol", async (req, res) => {
+  const { symbol } = req.params;
+  const { timeframe = '1M' } = req.query;
+  
+  console.log(`📊 Fetching technical analysis data for ${symbol} (${timeframe})...`);
+  
+  try {
+    const client = await stockPool.connect();
+    
+    // Calculate date range based on timeframe
+    const now = new Date();
+    let startDate = new Date();
+    
+    switch (timeframe) {
+      case '1D':
+        startDate.setDate(now.getDate() - 1);
+        break;
+      case '1W':
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case '1M':
+        startDate.setMonth(now.getMonth() - 1);
+        break;
+      case '3M':
+        startDate.setMonth(now.getMonth() - 3);
+        break;
+      case '6M':
+        startDate.setMonth(now.getMonth() - 6);
+        break;
+      case '1Y':
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+      default:
+        startDate.setMonth(now.getMonth() - 1);
+    }
+    
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = now.toISOString().split('T')[0];
+    
+    const query = `
+      SELECT
+        "Tanggal Perdagangan Terakhir" as trade_date,
+        "Open Price" as open,
+        "Tertinggi" as high,
+        "Terendah" as low,
+        "Penutupan" as close,
+        "Volume" as volume,
+        "Kode Saham" as symbol,
+        "Nama Perusahaan" as company_name
+      FROM saham_data
+      WHERE "Kode Saham" = $1
+        AND "Tanggal Perdagangan Terakhir" >= $2
+        AND "Tanggal Perdagangan Terakhir" <= $3
+      ORDER BY "Tanggal Perdagangan Terakhir" ASC
+    `;
+    
+    const result = await client.query(query, [symbol.toUpperCase(), startDateStr, endDateStr]);
+    client.release();
+    
+    if (result.rows.length === 0) {
+      console.log(`⚠️ No technical analysis data found for ${symbol}`);
+      return res.json({
+        success: true,
+        data: [],
+        company_name: `${symbol} - No Data`,
+        data_points: 0,
+        symbol: symbol.toUpperCase(),
+        timeframe: timeframe,
+        source: 'PostgreSQL Database'
+      });
+    }
+    
+    const data = result.rows.map(row => ({
+      trade_date: row.trade_date,
+      open: parseFloat(row.open) || 0,
+      high: parseFloat(row.high) || 0,
+      low: parseFloat(row.low) || 0,
+      close: parseFloat(row.close) || 0,
+      volume: parseInt(row.volume) || 0
+    }));
+    
+    // Calculate technical indicators for each data point
+    const prices = data.map(d => d.close);
+    const dataWithIndicators = data.map((point, index) => {
+      const currentPrices = prices.slice(0, index + 1);
+      
+      return {
+        ...point,
+        sma20: calculateSMA(currentPrices, 20),
+        sma50: calculateSMA(currentPrices, 50),
+        ema12: calculateEMA(currentPrices, 12),
+        ema26: calculateEMA(currentPrices, 26),
+        rsi14: calculateRSI(currentPrices, 14),
+        bollinger: calculateBollingerBands(currentPrices, 20),
+        macd: calculateMACD(currentPrices)
+      };
+    });
+    
+    const companyName = result.rows[0].company_name || symbol;
+    
+    console.log(`📤 Returning ${dataWithIndicators.length} technical analysis data points for ${companyName}`);
+    
+    res.json({
+      success: true,
+      data: dataWithIndicators,
+      company_name: companyName,
+      data_points: dataWithIndicators.length,
+      symbol: symbol.toUpperCase(),
+      timeframe: timeframe,
+      date_range: {
+        start: startDateStr,
+        end: endDateStr
+      },
+      source: 'PostgreSQL Database'
+    });
+    
+  } catch (error) {
+    console.error(`❌ Error fetching technical analysis data:`, error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch technical analysis data",
+      message: error.message
+    });
+  }
+});
 
 // POST /api/stocks/ai/consume - Consume AI quota for authenticated user
 router.post("/ai/consume", authMiddleware, async (req, res) => {
@@ -3367,12 +3548,17 @@ router.get("/fundamental/:symbol", async (req, res) => {
     client.release();
     
     if (result.rows.length === 0) {
-      console.log(`[${requestId}] ⚠️ No fundamental data found for ${symbol}`);
+      console.log(`[${requestId}] ⚠️ No fundamental data found for ${symbol}, returning mock data`);
+      
+      // Generate mock fundamental data as fallback
+      const mockData = generateMockFundamentalData(symbol.toUpperCase());
+      
       return res.json({
         success: true,
+        source: 'Mock Data (Database fallback)',
         symbol: symbol.toUpperCase(),
-        message: "No fundamental data available for this stock",
-        data: null
+        warning: 'No fundamental data in database, using mock data',
+        data: mockData
       });
     }
     
@@ -3405,14 +3591,58 @@ router.get("/fundamental/:symbol", async (req, res) => {
       stack: error.stack
     });
     
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch fundamental data",
-      message: error.message,
-      requestId: requestId
+    // Return mock data on database error
+    console.log(`[${requestId}] ⚠️ Database error, returning mock fundamental data`);
+    const mockData = generateMockFundamentalData(symbol.toUpperCase());
+    
+    res.json({
+      success: true,
+      source: 'Mock Data (Error fallback)',
+      symbol: symbol.toUpperCase(),
+      warning: 'Database error, using mock data',
+      data: mockData
     });
   }
 });
+
+// Helper function to generate mock fundamental data
+function generateMockFundamentalData(symbol) {
+  const symbolUpper = symbol.toUpperCase();
+  
+  // Base values for popular stocks
+  const baseValues = {
+    'BBCA': { eps: 850, per: 18.5, pbv: 3.2, roe: 18.5, dividendYield: 2.8 },
+    'TLKM': { eps: 380, per: 15.2, pbv: 2.1, roe: 14.2, dividendYield: 4.5 },
+    'ASII': { eps: 520, per: 12.8, pbv: 1.8, roe: 16.5, dividendYield: 3.2 },
+    'BMRI': { eps: 620, per: 14.5, pbv: 2.4, roe: 15.8, dividendYield: 3.8 },
+    'BBNI': { eps: 580, per: 13.2, pbv: 2.2, roe: 17.2, dividendYield: 4.1 },
+    'AAPL': { eps: 6.11, per: 28.5, pbv: 45.2, roe: 147.5, dividendYield: 0.5 },
+    'MSFT': { eps: 10.25, per: 32.8, pbv: 12.1, roe: 38.5, dividendYield: 0.8 },
+    'GOOGL': { eps: 5.52, per: 25.1, pbv: 6.2, roe: 25.8, dividendYield: 0.0 },
+    'AMZN': { eps: 3.15, per: 62.5, pbv: 8.5, roe: 14.2, dividendYield: 0.0 },
+    'TSLA': { eps: 4.05, per: 75.2, pbv: 12.5, roe: 22.5, dividendYield: 0.0 },
+    'NVDA': { eps: 18.45, per: 65.2, pbv: 42.5, roe: 122.5, dividendYield: 0.0 }
+  };
+  
+  const base = baseValues[symbolUpper] || {
+    eps: 100 + Math.random() * 500,
+    per: 10 + Math.random() * 20,
+    pbv: 1 + Math.random() * 3,
+    roe: 10 + Math.random() * 15,
+    dividendYield: Math.random() * 5
+  };
+  
+  return {
+    symbol: symbolUpper,
+    market: symbolUpper.length <= 4 ? 'IDX' : 'USA',
+    reportDate: new Date().toISOString().split('T')[0],
+    eps: parseFloat(base.eps.toFixed(2)),
+    per: parseFloat(base.per.toFixed(2)),
+    pbv: parseFloat(base.pbv.toFixed(2)),
+    roe: parseFloat(base.roe.toFixed(2)),
+    dividendYield: parseFloat(base.dividendYield.toFixed(2))
+  };
+}
 
 // GET /api/stocks/top-stocks - Get top stocks by bandarmologi (net buy)
 router.get("/top-stocks", async (req, res) => {

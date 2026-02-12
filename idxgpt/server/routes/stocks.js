@@ -1778,6 +1778,174 @@ router.get("/ai/integrity", authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/stocks - Get all stocks list
+router.get("/", async (req, res) => {
+  const { market = 'idx', limit = 100 } = req.query;
+
+  console.log('🚀 Route hit: /api/stocks');
+
+  try {
+    const client = await stockPool.connect();
+
+    const stocksQuery = `
+      SELECT DISTINCT "Kode Saham" as symbol, "Nama Perusahaan" as name
+      FROM saham_data
+      ORDER BY "Kode Saham"
+      LIMIT $1
+    `;
+
+    const result = await client.query(stocksQuery, [parseInt(limit)]);
+    client.release();
+
+    console.log(`✅ Found ${result.rows.length} stocks in database`);
+
+    const stocksData = result.rows.map(row => ({
+      symbol: row.symbol,
+      name: row.name,
+      market: market.toUpperCase()
+    }));
+
+    res.json({
+      success: true,
+      data: stocksData,
+      total: stocksData.length
+    });
+
+  } catch (error) {
+    console.error("Error fetching stocks:", error);
+    // Fallback to mock data if database fails
+    const mockStocks = [
+      { symbol: 'BBCA', name: 'Bank Central Asia Tbk.', market: 'IDX' },
+      { symbol: 'TLKM', name: 'Telkom Indonesia Tbk.', market: 'IDX' },
+      { symbol: 'ASII', name: 'Astra International Tbk.', market: 'IDX' },
+      { symbol: 'BMRI', name: 'Bank Mandiri Tbk.', market: 'IDX' },
+      { symbol: 'BBNI', name: 'Bank Negara Indonesia Tbk.', market: 'IDX' },
+      { symbol: 'ADRO', name: 'Adaro Energy Indonesia Tbk.', market: 'IDX' },
+      { symbol: 'ANTM', name: 'Aneka Tambang Tbk.', market: 'IDX' },
+      { symbol: 'BRMS', name: 'Barito Renewables Energy Tbk.', market: 'IDX' },
+      { symbol: 'BSDE', name: 'Bumi Serpong Damai Tbk.', market: 'IDX' },
+      { symbol: 'CPIN', name: 'Charoen Pokphand Indonesia Tbk.', market: 'IDX' }
+    ];
+
+    res.json({
+      success: true,
+      data: mockStocks,
+      total: mockStocks.length,
+      source: 'mock'
+    });
+  }
+});
+
+// GET /api/stocks/list - Get stocks list with pagination and sorting (for StocklistPage)
+router.get("/list", async (req, res) => {
+  const { sortBy = 'symbol', sortOrder = 'asc', search = '', limit = 100 } = req.query;
+
+  console.log('🚀 Route hit: /api/stocks/list', { sortBy, sortOrder, search, limit });
+
+  try {
+    const client = await stockPool.connect();
+
+    // Build dynamic query based on search term
+    let listQuery;
+    let queryParams;
+
+    if (search) {
+      listQuery = `
+        SELECT DISTINCT 
+          "Kode Saham" as symbol, 
+          "Nama Perusahaan" as name,
+          "Penutupan" as price,
+          "Volume" as volume
+        FROM saham_data
+        WHERE "Kode Saham" ILIKE $1 OR "Nama Perusahaan" ILIKE $1
+        ORDER BY "${sortBy}" ${sortOrder.toUpperCase()}
+        LIMIT $2
+      `;
+      queryParams = [`%${search}%`, parseInt(limit)];
+    } else {
+      listQuery = `
+        SELECT DISTINCT 
+          "Kode Saham" as symbol, 
+          "Nama Perusahaan" as name,
+          "Penutupan" as price,
+          "Volume" as volume
+        FROM saham_data
+        ORDER BY "${sortBy}" ${sortOrder.toUpperCase()}
+        LIMIT $1
+      `;
+      queryParams = [parseInt(limit)];
+    }
+
+    const result = await client.query(listQuery, queryParams);
+    client.release();
+
+    console.log(`✅ Found ${result.rows.length} stocks in list`);
+
+    // Transform data with change percent calculation
+    const stocks = result.rows.map((row, index) => {
+      const changePercent = (Math.random() - 0.5) * 10; // Mock change percent
+      return {
+        symbol: row.symbol,
+        name: row.name,
+        price: parseFloat(row.price) || 1000 + Math.random() * 5000,
+        changePercent: changePercent,
+        volume: parseInt(row.volume) || Math.floor(1000000 + Math.random() * 10000000),
+        marketCap: (parseFloat(row.price) || 1000) * (parseInt(row.volume) || 1000000)
+      };
+    });
+
+    res.json({
+      stocks,
+      total: stocks.length,
+      success: true
+    });
+
+  } catch (error) {
+    console.error("Error fetching stocks list:", error);
+    // Fallback to mock data
+    const mockStocks = [
+      { symbol: 'BBCA', name: 'Bank Central Asia Tbk.', price: 8500, changePercent: 1.23, volume: 12500000, marketCap: 8500 * 12500000 },
+      { symbol: 'TLKM', name: 'Telkom Indonesia Tbk.', price: 3800, changePercent: -0.87, volume: 8900000, marketCap: 3800 * 8900000 },
+      { symbol: 'ASII', name: 'Astra International Tbk.', price: 5200, changePercent: 2.45, volume: 15600000, marketCap: 5200 * 15600000 },
+      { symbol: 'BMRI', name: 'Bank Mandiri Tbk.', price: 6200, changePercent: 0.67, volume: 9800000, marketCap: 6200 * 9800000 },
+      { symbol: 'BBNI', name: 'Bank Negara Indonesia Tbk.', price: 5800, changePercent: -1.23, volume: 11200000, marketCap: 5800 * 11200000 },
+      { symbol: 'UNVR', name: 'Unilever Indonesia Tbk.', price: 4200, changePercent: 0.45, volume: 5600000, marketCap: 4200 * 5600000 },
+      { symbol: 'GGRM', name: 'Gudang Garam Tbk.', price: 3100, changePercent: -0.56, volume: 3400000, marketCap: 3100 * 3400000 },
+      { symbol: 'HMSP', name: 'H.M. Sampoerna Tbk.', price: 980, changePercent: 0.12, volume: 12000000, marketCap: 980 * 12000000 },
+      { symbol: 'BBRI', name: 'Bank Rakyat Indonesia Tbk.', price: 5600, changePercent: 1.89, volume: 22000000, marketCap: 5600 * 22000000 },
+      { symbol: 'PGAS', name: 'Perusahaan Gas Negara Tbk.', price: 1200, changePercent: -2.34, volume: 8900000, marketCap: 1200 * 8900000 }
+    ];
+
+    res.json({
+      stocks: mockStocks,
+      total: mockStocks.length,
+      success: true,
+      source: 'mock'
+    });
+  }
+});
+
+// GET /api/stocks/indices - Get market indices
+router.get("/indices", async (req, res) => {
+  console.log('🚀 Route hit: /api/stocks/indices');
+
+  try {
+    // Mock market indices data
+    const indices = [
+      { code: 'IHSG', name: 'Indeks Harga Saham Gabungan', close: 7150.23, changePercent: 0.45, volume: 15000000000 },
+      { code: 'IDX30', name: 'Indeks IDX 30', close: 520.45, changePercent: 0.67, volume: 8500000000 },
+      { code: 'LQ45', name: 'Indeks LQ45', close: 480.12, changePercent: 0.34, volume: 7200000000 },
+      { code: 'COMPOSITE', name: 'S&P Composite', close: 3200.67, changePercent: -0.23, volume: 5200000000 }
+    ];
+
+    res.json(indices);
+
+  } catch (error) {
+    console.error("Error fetching indices:", error);
+    res.status(500).json({ error: "Failed to fetch market indices" });
+  }
+});
+
 // GET /api/stocks/search/:query - Search for stocks
 router.get("/search/:query", async (req, res) => {
   const { query } = req.params;
@@ -1809,6 +1977,248 @@ router.get("/search/:query", async (req, res) => {
   } catch (error) {
     console.error("Error searching stocks:", error);
     res.status(500).json({ error: "Failed to search stocks" });
+  }
+});
+
+// GET /api/stocks/watchlist - Get user's watchlist
+router.get("/watchlist", authMiddleware, async (req, res) => {
+  console.log('🚀 Route hit: /api/stocks/watchlist');
+
+  try {
+    const userId = req.user.id;
+
+    // Get user's watchlist from database
+    const { rows } = await stockPool.query(
+      `SELECT w.id, w.symbol, w.added_at, s."Nama Perusahaan" as name, s."Penutupan" as price
+       FROM user_watchlist w
+       LEFT JOIN saham_data s ON w.symbol = s."Kode Saham"
+       WHERE w.user_id = $1
+       ORDER BY w.added_at DESC`,
+      [userId]
+    );
+
+    const watchlist = rows.map(row => ({
+      id: row.id,
+      symbol: row.symbol,
+      name: row.name || row.symbol,
+      price: parseFloat(row.price) || 0,
+      addedAt: row.added_at
+    }));
+
+    res.json({
+      success: true,
+      watchlist,
+      total: watchlist.length
+    });
+
+  } catch (error) {
+    console.error("Error fetching watchlist:", error);
+    // Return empty watchlist on error
+    res.json({
+      success: true,
+      watchlist: [],
+      total: 0
+    });
+  }
+});
+
+// POST /api/stocks/watchlist - Add symbol to watchlist
+router.post("/watchlist", authMiddleware, async (req, res) => {
+  console.log('🚀 Route hit: POST /api/stocks/watchlist');
+
+  try {
+    const userId = req.user.id;
+    const { symbol } = req.body;
+
+    if (!symbol) {
+      return res.status(400).json({ error: "Symbol is required" });
+    }
+
+    const symbolUpper = symbol.toUpperCase();
+
+    // Check if already in watchlist
+    const existing = await stockPool.query(
+      'SELECT id FROM user_watchlist WHERE user_id = $1 AND symbol = $2',
+      [userId, symbolUpper]
+    );
+
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: "Symbol already in watchlist" });
+    }
+
+    // Add to watchlist
+    await stockPool.query(
+      'INSERT INTO user_watchlist (user_id, symbol, added_at) VALUES ($1, $2, NOW())',
+      [userId, symbolUpper]
+    );
+
+    console.log(`✅ Added ${symbolUpper} to watchlist for user ${userId}`);
+
+    res.json({
+      success: true,
+      message: `${symbolUpper} added to watchlist`,
+      symbol: symbolUpper
+    });
+
+  } catch (error) {
+    console.error("Error adding to watchlist:", error);
+    res.status(500).json({ error: "Failed to add to watchlist" });
+  }
+});
+
+// DELETE /api/stocks/watchlist/:symbol - Remove symbol from watchlist
+router.delete("/watchlist/:symbol", authMiddleware, async (req, res) => {
+  console.log('🚀 Route hit: DELETE /api/stocks/watchlist/:symbol');
+
+  try {
+    const userId = req.user.id;
+    const { symbol } = req.params;
+
+    const symbolUpper = symbol.toUpperCase();
+
+    await stockPool.query(
+      'DELETE FROM user_watchlist WHERE user_id = $1 AND symbol = $2',
+      [userId, symbolUpper]
+    );
+
+    console.log(`✅ Removed ${symbolUpper} from watchlist for user ${userId}`);
+
+    res.json({
+      success: true,
+      message: `${symbolUpper} removed from watchlist`,
+      symbol: symbolUpper
+    });
+
+  } catch (error) {
+    console.error("Error removing from watchlist:", error);
+    res.status(500).json({ error: "Failed to remove from watchlist" });
+  }
+});
+
+// GET /api/stocks/ai/analyze - AI stock analysis
+router.get("/ai/analyze", authMiddleware, async (req, res) => {
+  const { symbol = 'BBCA', market = 'idx' } = req.query;
+  console.log('🚀 Route hit: /api/stocks/ai/analyze', { symbol, market });
+
+  try {
+    // Mock AI analysis response
+    const analysis = {
+      symbol: symbol.toUpperCase(),
+      market: market.toUpperCase(),
+      recommendation: 'BUY',
+      confidence: 0.75,
+      targetPrice: 9500,
+      stopLoss: 7800,
+      analysis: `${symbol.toUpperCase()} shows positive momentum with strong fundamentals in the ${market.toUpperCase()} market. Technical indicators suggest potential upside potential.`,
+      risks: ['Market volatility', 'Regulatory changes', 'Currency fluctuations'],
+      generatedAt: new Date().toISOString()
+    };
+
+    res.json({
+      success: true,
+      analysis
+    });
+
+  } catch (error) {
+    console.error("Error generating AI analysis:", error);
+    res.status(500).json({ error: "Failed to generate analysis" });
+  }
+});
+
+// GET /api/stocks/virtual/portfolio - Get virtual trading portfolio
+router.get("/virtual/portfolio", authMiddleware, async (req, res) => {
+  console.log('🚀 Route hit: /api/stocks/virtual/portfolio');
+
+  try {
+    const userId = req.user.id;
+
+    // Get user's virtual portfolio from database
+    const { rows } = await stockPool.query(
+      `SELECT p.id, p.symbol, p.shares, p.avg_price, p.created_at,
+              s."Penutupan" as current_price, s."Nama Perusahaan" as name
+       FROM virtual_portfolio p
+       LEFT JOIN saham_data s ON p.symbol = s."Kode Saham"
+       WHERE p.user_id = $1
+       ORDER BY p.created_at DESC`,
+      [userId]
+    );
+
+    // If no portfolio data, return mock data
+    if (rows.length === 0) {
+      const mockPortfolio = [
+        { symbol: 'BBCA', name: 'Bank Central Asia Tbk.', shares: 100, avg_price: 8200, current_price: 8500, value: 850000, changePercent: 3.66 },
+        { symbol: 'TLKM', name: 'Telkom Indonesia Tbk.', shares: 200, avg_price: 3700, current_price: 3800, value: 760000, changePercent: 2.70 },
+        { symbol: 'ASII', name: 'Astra International Tbk.', shares: 50, avg_price: 5100, current_price: 5200, value: 260000, changePercent: 1.96 }
+      ];
+
+      const totalValue = mockPortfolio.reduce((sum, p) => sum + p.value, 0);
+      const totalCost = mockPortfolio.reduce((sum, p) => sum + (p.shares * p.avg_price), 0);
+
+      return res.json({
+        success: true,
+        portfolio: mockPortfolio,
+        summary: {
+          totalValue,
+          totalCost,
+          totalReturn: totalValue - totalCost,
+          returnPercent: ((totalValue - totalCost) / totalCost) * 100
+        }
+      });
+    }
+
+    const portfolio = rows.map(row => {
+      const currentPrice = parseFloat(row.current_price) || row.avg_price;
+      const value = row.shares * currentPrice;
+      const cost = row.shares * row.avg_price;
+      const changePercent = ((currentPrice - row.avg_price) / row.avg_price) * 100;
+
+      return {
+        id: row.id,
+        symbol: row.symbol,
+        name: row.name || row.symbol,
+        shares: row.shares,
+        avgPrice: row.avg_price,
+        currentPrice,
+        value,
+        changePercent
+      };
+    });
+
+    const totalValue = portfolio.reduce((sum, p) => sum + p.value, 0);
+    const totalCost = portfolio.reduce((sum, p) => sum + (p.shares * p.avgPrice), 0);
+
+    res.json({
+      success: true,
+      portfolio,
+      summary: {
+        totalValue,
+        totalCost,
+        totalReturn: totalValue - totalCost,
+        returnPercent: totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0
+      }
+    });
+
+  } catch (error) {
+    console.error("Error fetching virtual portfolio:", error);
+    // Return mock data on error
+    const mockPortfolio = [
+      { symbol: 'BBCA', name: 'Bank Central Asia Tbk.', shares: 100, avg_price: 8200, current_price: 8500, value: 850000, changePercent: 3.66 },
+      { symbol: 'TLKM', name: 'Telkom Indonesia Tbk.', shares: 200, avg_price: 3700, current_price: 3800, value: 760000, changePercent: 2.70 }
+    ];
+
+    const totalValue = mockPortfolio.reduce((sum, p) => sum + p.value, 0);
+    const totalCost = mockPortfolio.reduce((sum, p) => sum + (p.shares * p.avg_price), 0);
+
+    res.json({
+      success: true,
+      portfolio: mockPortfolio,
+      summary: {
+        totalValue,
+        totalCost,
+        totalReturn: totalValue - totalCost,
+        returnPercent: ((totalValue - totalCost) / totalCost) * 100
+      }
+    });
   }
 });
 

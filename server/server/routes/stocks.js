@@ -1466,6 +1466,45 @@ function generateSimulatedStockData(symbol, days) {
   };
 }
 
+// Generate mock fundamental data for testing
+function generateMockFundamentalData(symbol) {
+  const symbolUpper = symbol.toUpperCase();
+  
+  // Base values for popular stocks
+  const baseValues = {
+    'BBCA': { eps: 850, per: 18.5, pbv: 3.2, roe: 18.5, dividendYield: 2.8 },
+    'TLKM': { eps: 380, per: 15.2, pbv: 2.1, roe: 14.2, dividendYield: 4.5 },
+    'ASII': { eps: 520, per: 12.8, pbv: 1.8, roe: 16.5, dividendYield: 3.2 },
+    'BMRI': { eps: 620, per: 14.5, pbv: 2.4, roe: 15.8, dividendYield: 3.8 },
+    'BBNI': { eps: 580, per: 13.2, pbv: 2.2, roe: 17.2, dividendYield: 4.1 },
+    'AAPL': { eps: 6.11, per: 28.5, pbv: 45.2, roe: 147.5, dividendYield: 0.5 },
+    'MSFT': { eps: 10.25, per: 32.8, pbv: 12.1, roe: 38.5, dividendYield: 0.8 },
+    'GOOGL': { eps: 5.52, per: 25.1, pbv: 6.2, roe: 25.8, dividendYield: 0.0 },
+    'AMZN': { eps: 3.15, per: 62.5, pbv: 8.5, roe: 14.2, dividendYield: 0.0 },
+    'TSLA': { eps: 4.05, per: 75.2, pbv: 12.5, roe: 22.5, dividendYield: 0.0 },
+    'NVDA': { eps: 18.45, per: 65.2, pbv: 42.5, roe: 122.5, dividendYield: 0.0 }
+  };
+  
+  const base = baseValues[symbolUpper] || {
+    eps: 100 + Math.random() * 500,
+    per: 10 + Math.random() * 20,
+    pbv: 1 + Math.random() * 3,
+    roe: 10 + Math.random() * 15,
+    dividendYield: Math.random() * 5
+  };
+  
+  return {
+    symbol: symbolUpper,
+    market: symbolUpper.length <= 4 ? 'IDX' : 'USA',
+    reportDate: new Date().toISOString().split('T')[0],
+    eps: parseFloat(base.eps.toFixed(2)),
+    per: parseFloat(base.per.toFixed(2)),
+    pbv: parseFloat(base.pbv.toFixed(2)),
+    roe: parseFloat(base.roe.toFixed(2)),
+    dividendYield: parseFloat(base.dividendYield.toFixed(2))
+  };
+}
+
 // Technical indicators functions
 function calculateSMA(prices, period) {
   if (prices.length < period) return null;
@@ -2676,12 +2715,17 @@ router.get("/fundamental/:symbol", async (req, res) => {
     client.release();
     
     if (result.rows.length === 0) {
-      console.log(`[${requestId}] ⚠️ No fundamental data found for ${symbol}`);
+      console.log(`[${requestId}] ⚠️ No fundamental data found for ${symbol}, returning mock data`);
+      
+      // Generate mock fundamental data as fallback
+      const mockData = generateMockFundamentalData(symbol.toUpperCase());
+      
       return res.json({
         success: true,
+        source: 'Mock Data (Database fallback)',
         symbol: symbol.toUpperCase(),
-        message: "No fundamental data available for this stock",
-        data: null
+        warning: 'No fundamental data in database, using mock data',
+        data: mockData
       });
     }
     

@@ -1383,6 +1383,30 @@
       "processing": "Memproses..."
     }
   },
+  "technical": {
+    "title": "Analisis Teknis",
+    "subtitle": "Analisis teknis komprehensif dengan grafik dan indikator real-time",
+    "searchStock": "Cari saham...",
+    "refresh": "Segarkan",
+    "loadingData": "Memuat data...",
+    "tryAgain": "Coba Lagi",
+    "volume": "Volume",
+    "currentVolume": "Volume Sekarang",
+    "averageVolume": "Volume Rata-rata",
+    "rsiValue": "Nilai RSI",
+    "status": "Status",
+    "overbought": "Overbought",
+    "oversold": "Oversold",
+    "neutral": "Netral",
+    "movingAverages": "Moving Averages",
+    "tradingRecommendations": "Rekomendasi Trading",
+    "buySignal": "Sinyal Beli",
+    "buyRecommendation": "Sinyal beli kuat berdasarkan indikator teknis",
+    "holdSignal": "Sinyal Tahan",
+    "holdRecommendation": "Netral, tahan posisi",
+    "sellSignal": "Sinyal Jual",
+    "sellRecommendation": "Sinyal jual kuat berdasarkan indikator teknis"
+  },
   "footerPages": {
     "about": {
       "title": "Tentang Kami",

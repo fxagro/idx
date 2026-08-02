@@ -1,0 +1,10 @@
+services:
+  idx-backend:
+    build:
+      context: ./fastapi-server
+      dockerfile: Dockerfile
+    container_name: idx-fastapi-backend
+    network_mode: host
+    env_file:
+      - ./fastapi-server/.env
+    restart: unless-stopped

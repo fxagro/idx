@@ -1,0 +1,26 @@
+{
+  "eod_date": "2026-05-25",
+  "timestamp": "2026-05-25T20:37:15.566104",
+  "balance_sheet": {
+    "report_type": "balance_sheet",
+    "trade_date": "2026-05-25",
+    "rows": [
+      {
+        "id": 1,
+        "description": "Total Balance Sheet",
+        "amount": 0.0
+      }
+    ]
+  },
+  "income_statement": {
+    "report_type": "income_statement",
+    "trade_date": "2026-05-25",
+    "rows": [
+      {
+        "id": 1,
+        "description": "Total Income Statement",
+        "amount": 0.0
+      }
+    ]
+  }
+}

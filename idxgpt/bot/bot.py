@@ -18,6 +18,9 @@ import pandas_ta as ta
 import yfinance as yf
 import mplfinance as mpf
 import numpy as np
+
+# Import LangChain service
+from langchain_service import LangChainService
 from sklearn.linear_model import LinearRegression
 import time
 from statsmodels.tsa.arima.model import ARIMA
@@ -4250,6 +4253,41 @@ async def ask_bjb_sekuritas(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             news_narrative = "Tidak ada berita terbaru untuk dianalisis. "
 
+        # --- Bagian 7.5: Analisis AI dengan LangChain ---
+        try:
+            # Initialize LangChain service
+            langchain_service = LangChainService()
+            
+            # Create a comprehensive prompt for stock analysis
+            analysis_prompt = f"""
+            Anda adalah analis saham ahli yang memberikan analisis fundamental dan teknikal untuk saham {ticker} di Bursa Efek Indonesia.
+            
+            Berikut adalah data yang telah kumpulkan:
+            - Harga saat ini: Rp{price:.2f} ({'naik' if change >= 0 else 'turun'} {abs(change):.2f}%)
+            - SMA 5 hari: Rp{sma_5:.2f}
+            - Rasio P/E: {pe_ratio if pe_ratio is not None else 'Tidak tersedia'}
+            - EPS: Rp{eps if eps is not None else 'Tidak tersedia'}
+            - ROE: {roe if roe is not None else 'Tidak tersedia'}%
+            - Dividend Yield: {dividend_yield if dividend_yield is not None else 'Tidak tersedia'}%
+            - Debt to Equity: {debt_to_equity if debt_to_equity is not None else 'Tidak tersedia'}
+            - Sentimen dari volume: {sentiment_text}
+            - Berita terbaru: {news_title if news_title else 'Tidak ada berita'}
+            
+            Berikan analisis singkat (maksimal 3 kalimat) yang mencakup:
+            1. Evaluasi kondisi teknikal dan fundamental saham ini
+            2. Pasar dan sentimen terkini yang memengaruhi harga
+            3. Rekomendasi singkat untuk investor (beli/jaga/jual) dengan pertimbangan risiko
+            
+            Jawab dalam bahasa Indonesia yang profesional namun mudah dipahami.
+            """
+            
+            # Get AI-generated insight
+            ai_insight = langchain_service.generate_text(analysis_prompt, max_tokens=300)
+            ai_narrative = f"🤖 *Analisis AI:* {ai_insight.strip()}\n\n"
+        except Exception as e:
+            logger.warning(f"LangChain analysis failed: {str(e)}")
+            ai_narrative = ""
+
         # --- Bagian 8: Hitung Skor untuk Keputusan Buy/Sell/Hold ---
         score = 0
         warnings = []
@@ -4304,7 +4342,8 @@ async def ask_bjb_sekuritas(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"- *Fundamental:*\n{fundamental_text}\n🌐 Website: {website}\n\n"
             f"- *Sentimen:* {sentiment_text}\n\n"
             f"{news_text}"
-            f"{news_narrative}\n"
+            f"{news_narrative}"
+            f"{ai_narrative}"
             f"*Saran:* {recommendation}, target Rp{target_price:.2f} jika tren berlanjut.\n"
             f"{warnings_text}"
         )

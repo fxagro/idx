@@ -1,0 +1,72 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from .config import settings
+from .routers import auth, stocks, portfolio, plans, dashboard, affiliate, sniper, brokers, android_compat
+
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    version=settings.VERSION,
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# Set up CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Adjust in production as needed
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount modular API routers
+app.include_router(auth.router, prefix="/api")
+# Also mount auth router with no prefix inside auth so /api/me works, but wait, auth.router has prefix="/auth"
+# Let's fix this by adding a new route or modifying the prefix. Wait, if I do this:
+# We'll just define the /api/me and others here to redirect to auth.
+app.include_router(auth.router, prefix="/api")
+
+# We can override or add a direct route
+from .routers.auth import get_me, get_current_user
+from fastapi import Depends
+@app.get("/api/me")
+def api_me(current_user=Depends(get_current_user)):
+    return get_me(current_user)
+
+@app.get("/api/me/transactions")
+def api_me_transactions(current_user=Depends(get_current_user)):
+    return {"success": True, "data": []}
+
+@app.get("/api/stocks/ai/quota")
+def api_stocks_ai_quota(current_user=Depends(get_current_user)):
+    return {
+        "success": True,
+        "data": {
+            "remaining": current_user.ai_quota,
+            "used": getattr(current_user, "ai_usage", 0),
+            "limit": getattr(current_user, "ai_limit", 10)
+        }
+    }
+
+app.include_router(stocks.router, prefix="/api")
+app.include_router(portfolio.router, prefix="/api")
+app.include_router(plans.router, prefix="/api")
+app.include_router(dashboard.router, prefix="/api")
+app.include_router(affiliate.router, prefix="/api")
+app.include_router(sniper.router, prefix="/api")
+app.include_router(brokers.router, prefix="/api/brokers")
+app.include_router(android_compat.router, prefix="/api")
+
+
+@app.get("/health")
+@app.get("/api/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "service": settings.PROJECT_NAME,
+        "version": settings.VERSION
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=5000, reload=True)

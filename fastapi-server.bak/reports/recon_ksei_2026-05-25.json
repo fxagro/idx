@@ -1,0 +1,98 @@
+{
+  "recon_date": "2026-05-25",
+  "phase": "internal_vs_ksei",
+  "timestamp": "2026-05-25T08:32:01.096875",
+  "total_discrepancies": 10,
+  "discrepancies": [
+    {
+      "type": "QUANTITY_MISMATCH",
+      "user_id": 43,
+      "symbol": "CBRE",
+      "internal_qty": "100",
+      "ksei_qty": 0,
+      "difference": "100",
+      "severity": "WARNING"
+    },
+    {
+      "type": "QUANTITY_MISMATCH",
+      "user_id": 43,
+      "symbol": "JPFA",
+      "internal_qty": "100",
+      "ksei_qty": 0,
+      "difference": "100",
+      "severity": "WARNING"
+    },
+    {
+      "type": "QUANTITY_MISMATCH",
+      "user_id": 44,
+      "symbol": "AALI",
+      "internal_qty": "100",
+      "ksei_qty": 0,
+      "difference": "100",
+      "severity": "WARNING"
+    },
+    {
+      "type": "QUANTITY_MISMATCH",
+      "user_id": 44,
+      "symbol": "BJBR",
+      "internal_qty": "100",
+      "ksei_qty": 0,
+      "difference": "100",
+      "severity": "WARNING"
+    },
+    {
+      "type": "QUANTITY_MISMATCH",
+      "user_id": 44,
+      "symbol": "BRMS",
+      "internal_qty": "1000000",
+      "ksei_qty": 0,
+      "difference": "1000000",
+      "severity": "CRITICAL"
+    },
+    {
+      "type": "QUANTITY_MISMATCH",
+      "user_id": 44,
+      "symbol": "DCII",
+      "internal_qty": "100000",
+      "ksei_qty": 0,
+      "difference": "100000",
+      "severity": "CRITICAL"
+    },
+    {
+      "type": "QUANTITY_MISMATCH",
+      "user_id": 44,
+      "symbol": "EMAS",
+      "internal_qty": "100",
+      "ksei_qty": 0,
+      "difference": "100",
+      "severity": "WARNING"
+    },
+    {
+      "type": "QUANTITY_MISMATCH",
+      "user_id": 44,
+      "symbol": "ENRG",
+      "internal_qty": "100",
+      "ksei_qty": 0,
+      "difference": "100",
+      "severity": "WARNING"
+    },
+    {
+      "type": "QUANTITY_MISMATCH",
+      "user_id": 44,
+      "symbol": "MANM",
+      "internal_qty": "10000000",
+      "ksei_qty": 0,
+      "difference": "10000000",
+      "severity": "CRITICAL"
+    },
+    {
+      "type": "QUANTITY_MISMATCH",
+      "user_id": 44,
+      "symbol": "MEDC",
+      "internal_qty": "10000",
+      "ksei_qty": 0,
+      "difference": "10000",
+      "severity": "CRITICAL"
+    }
+  ]
+}

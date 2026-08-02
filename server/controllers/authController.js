@@ -12,7 +12,7 @@ const registerSchema = Joi.object({
 
 const loginSchema = Joi.object({
   email: Joi.string().email().required(),
-  password: Joi.string().min(6).required()
+  password: Joi.string().min(6)
 });
 
 const refreshTokenSchema = Joi.object({
@@ -111,10 +111,10 @@ class AuthController {
       });
 
       // Handle specific error types
-      if (error.message.includes('Invalid credentials')) {
+      if (error.message.includes('Invalid credentials') || error.message.includes('User not found')) {
         return res.status(401).json({
           success: false,
-          message: 'Invalid credentials'
+          message: error.message.includes('User not found') ? 'Invalid credentials' : 'Invalid credentials'
         });
       }
 

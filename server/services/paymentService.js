@@ -169,19 +169,21 @@ const sendOrderConfirmationEmail = async (userId, planId, amount) => {
     }
 
     // Create email transporter
-    const transporter = nodemailer.createTransporter({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'mail.mytriv.com',
       port: process.env.SMTP_PORT || 587,
       secure: false,
       auth: {
-        user: process.env.SMTP_USER || 'your-email@gmail.com',
-        pass: process.env.SMTP_PASS || 'your-app-password'
+        user: process.env.SMTP_USER || 'idx@mytriv.com',
+        pass: process.env.SMTP_PASS
+      },
+      tls: {
+        rejectUnauthorized: false
       }
     });
 
-    // Email content
     const mailOptions = {
-      from: process.env.SMTP_USER || 'noreply@ai-saham.com',
+      from: process.env.SMTP_FROM || 'idx@mytriv.com',
       to: userEmail,
       subject: 'Konfirmasi Pesanan Paket AI Saham',
       html: `

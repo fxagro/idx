@@ -90,7 +90,7 @@ const Navbar = () => {
           </div>
 
           {/* Responsive Navigation */}
-          <div className="hidden md:flex items-center space-x-1">
+          <div className="hidden md:flex xl:hidden items-center space-x-1">
             {/* Dashboard Dropdown */}
             <div className="relative">
               <button
@@ -160,8 +160,8 @@ const Navbar = () => {
             </div>
           </div>
 
-          {/* Desktop Navigation (1024px+) */}
-          <div className="hidden lg:flex items-center space-x-1">
+          {/* Desktop Navigation (1280px+) */}
+          <div className="hidden xl:flex items-center space-x-1">
             {/* Dashboard Dropdown */}
             <div className="relative">
               <button
@@ -426,6 +426,14 @@ const Navbar = () => {
                           <FileText size={14} className="flex-shrink-0" />
                           <span>{t('navbar.history')}</span>
                         </Link>
+                        <Link
+                          to="/virtual-trading/history"
+                          className="flex items-center space-x-3 px-4 py-2 text-sm hover:bg-gray-100 transition-colors"
+                          data-testid="trade-confirmation-link"
+                        >
+                          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                          <span>Trade Confirmation</span>
+                        </Link>
                       </div>
                     </div>
                   )}
@@ -495,10 +503,10 @@ const Navbar = () => {
           </div>
 
           {/* Mobile Menu Button - Show on mobile and tablet */}
-          <div className="md:flex lg:hidden">
+          <div className="md:flex xl:hidden">
             <button
               onClick={() => toggleDropdown('mobile')}
-              className="lg:hidden hover:bg-blue-700 p-2 rounded-lg transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+              className="xl:hidden hover:bg-blue-700 p-2 rounded-lg transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
               data-testid="mobile-menu-button"
               aria-label="Open mobile menu"
             >
@@ -673,6 +681,10 @@ const Navbar = () => {
                       <Link to="/virtual-trading/history" className="flex items-center space-x-2 px-3 py-2 text-sm hover:bg-gray-100 transition-colors rounded">
                         <FileText size={14} className="flex-shrink-0" />
                         <span>History</span>
+                      </Link>
+                      <Link to="/virtual-trading/history" className="flex items-center space-x-2 px-3 py-2 text-sm hover:bg-gray-100 transition-colors rounded">
+                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        <span>Trade Confirmation</span>
                       </Link>
                     </div>
                   </div>

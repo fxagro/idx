@@ -143,6 +143,28 @@ export default function Landing() {
           <span className="px-3 py-1 rounded-full bg-yellow-100 text-yellow-700">{t("landing.hero.trust.prediction")}</span>
           <span className="px-3 py-1 rounded-full bg-red-100 text-red-700">{t("landing.hero.trust.bandarmology")}</span>
         </div>
+
+        {/* Stock Data Horizontal Cards */}
+        <div className="mt-8 flex flex-wrap justify-center gap-4">
+          <div className="px-4 py-2 rounded-lg bg-green-500 text-white font-bold shadow">
+            <span className="text-lg">+1.8%</span>
+          </div>
+          <div className="px-4 py-2 rounded-lg bg-blue-500 text-white font-semibold shadow">
+            <span className="text-sm">Signal Log</span>
+          </div>
+          <div className="px-4 py-2 rounded-lg bg-yellow-500 text-gray-900 font-semibold shadow">
+            <span className="text-sm">Medium</span>
+          </div>
+          <div className="px-4 py-2 rounded-lg bg-purple-500 text-white font-semibold shadow">
+            <span className="text-sm">Accumulation</span>
+          </div>
+          <div className="px-4 py-2 rounded-lg bg-green-600 text-white font-semibold shadow">
+            <span className="text-sm">Net Buy</span>
+          </div>
+          <div className="px-4 py-2 rounded-lg bg-cyan-500 text-white font-semibold shadow">
+            <span className="text-sm">Foreign Flow</span>
+          </div>
+        </div>
       </section>
 
       {/* Produk Unggulan */}
@@ -166,19 +188,210 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Metode Analisis AI */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
-        <h3 className="text-2xl font-bold text-center text-gray-900">Metode Analisis & Prediksi</h3>
-        <p className="text-center text-gray-600 mt-2">Dari indikator klasik hingga Deep Learning — semuanya dalam satu platform.</p>
-        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {aiMethods.map((m, i) => (
-            <div key={i} className={`p-5 bg-white rounded-xl shadow border ${m.c}`}>
-              <div className="font-semibold">{m.t}</div>
-              <p className="mt-2 text-sm text-gray-600">{m.d}</p>
+       {/* InvestPro Assistant Chrome Extension */}
+       <section className="bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 py-16 px-4">
+         <div className="max-w-7xl mx-auto">
+           <div className="text-center mb-12">
+             <h3 className="text-3xl font-bold text-gray-900 mb-4">📈 InvestPro Assistant - AI-Powered Trading & Investment Tools</h3>
+             <p className="text-lg text-gray-700 max-w-3xl mx-auto">A comprehensive Chrome extension for investors and traders, providing AI-powered market analysis for Stocks, Forex, Crypto, and Commodities.</p>
+           </div>
+
+           {/* Market Categories */}
+           <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+             <h4 className="text-2xl font-bold text-gray-900 mb-6 text-center">🎯 Market Categories</h4>
+             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+               <div className="text-center p-4 rounded-xl bg-green-50 border-2 border-green-200 hover:border-green-400 transition">
+                 <div className="text-4xl mb-3">📊</div>
+                 <div className="font-semibold text-green-700 mb-2">Stocks</div>
+                 <div className="text-sm text-gray-600">Equity market analysis (AAPL, TSLA, NVDA, etc.)</div>
+               </div>
+               <div className="text-center p-4 rounded-xl bg-blue-50 border-2 border-blue-200 hover:border-blue-400 transition">
+                 <div className="text-4xl mb-3">💱</div>
+                 <div className="font-semibold text-blue-700 mb-2">Forex</div>
+                 <div className="text-sm text-gray-600">Currency pair analysis (EUR/USD, GBP/USD, etc.)</div>
+               </div>
+               <div className="text-center p-4 rounded-xl bg-purple-50 border-2 border-purple-200 hover:border-purple-400 transition">
+                 <div className="text-4xl mb-3">₿</div>
+                 <div className="font-semibold text-purple-700 mb-2">Crypto</div>
+                 <div className="text-sm text-gray-600">Digital asset analysis (BTC, ETH, SOL, etc.)</div>
+               </div>
+               <div className="text-center p-4 rounded-xl bg-yellow-50 border-2 border-yellow-200 hover:border-yellow-400 transition">
+                 <div className="text-4xl mb-3">🪙</div>
+                 <div className="font-semibold text-yellow-700 mb-2">Commodities</div>
+                 <div className="text-sm text-gray-600">Gold, Oil, Natural Gas, and more</div>
+               </div>
+             </div>
+           </div>
+
+           {/* Analysis Types */}
+           <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+             <h4 className="text-2xl font-bold text-gray-900 mb-6 text-center">🔍 Analysis Types</h4>
+             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+               {/* Technical Analysis */}
+               <div className="p-6 rounded-xl bg-gradient-to-b from-blue-50 to-blue-100">
+                 <h5 className="text-xl font-semibold text-blue-800 mb-4">📉 Technical Analysis</h5>
+                 <ul className="space-y-2 text-sm text-gray-700">
+                   <li>• Trend Analysis - Support/Resistance, Trendlines</li>
+                   <li>• Indicators - RSI, MACD, Moving Averages, Bollinger Bands</li>
+                   <li>• Chart Patterns - Head & Shoulders, Triangles, Wedges</li>
+                   <li>• Candlestick Patterns - Doji, Hammer, Engulfing</li>
+                   <li>• Fibonacci - Retracement & Extension levels</li>
+                   <li>• Volume Analysis - OBV, Volume Profile</li>
+                 </ul>
+               </div>
+               {/* Fundamental Analysis */}
+               <div className="p-6 rounded-xl bg-gradient-to-b from-green-50 to-green-100">
+                 <h5 className="text-xl font-semibold text-green-800 mb-4">📋 Fundamental Analysis</h5>
+                 <ul className="space-y-2 text-sm text-gray-700">
+                   <li>• Financials - Revenue, Earnings, P/E Ratio</li>
+                   <li>• Valuation - DCF, Intrinsic Value</li>
+                   <li>• Economic Data - GDP, Inflation, Interest Rates</li>
+                   <li>• Market Sentiment - Fear & Greed Index</li>
+                   <li>• Ownership - Insider Trading, Institutional Holdings</li>
+                   <li>• Competitive Analysis - SWOT, Industry Comparison</li>
+                 </ul>
+               </div>
+               {/* News Analysis */}
+               <div className="p-6 rounded-xl bg-gradient-to-b from-purple-50 to-purple-100">
+                 <h5 className="text-xl font-semibold text-purple-800 mb-4">📰 News Analysis</h5>
+                 <ul className="space-y-2 text-sm text-gray-700">
+                   <li>• Breaking News - Market-moving events</li>
+                   <li>• Earnings Reports - Quarterly results analysis</li>
+                   <li>• Regulatory Updates - Policy & legal developments</li>
+                   <li>• Macro Events - Global economic events</li>
+                 </ul>
+               </div>
+             </div>
+           </div>
+
+           {/* Customization Options */}
+           <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+             <h4 className="text-2xl font-bold text-gray-900 mb-6 text-center">🎛️ Customization Options</h4>
+             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+               <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
+                 <div className="font-semibold text-gray-800 mb-2">Timeframes</div>
+                 <div className="text-sm text-gray-600">1M, 5M, 15M, 1H, 4H, 1D, 1W, 1M</div>
+               </div>
+               <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
+                 <div className="font-semibold text-gray-800 mb-2">Risk Profiles</div>
+                 <div className="text-sm text-gray-600">Conservative, Moderate, Aggressive</div>
+               </div>
+               <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
+                 <div className="font-semibold text-gray-800 mb-2">Analysis Depth</div>
+                 <div className="text-sm text-gray-600">Quick Overview to Comprehensive Deep Dive</div>
+               </div>
+               <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
+                 <div className="font-semibold text-gray-800 mb-2">Output Languages</div>
+                 <div className="text-sm text-gray-600">English, Indonesian, Mandarin, Japanese, Spanish, Arabic</div>
+               </div>
+             </div>
+           </div>
+
+           {/* Additional Features */}
+           <div className="bg-white rounded-2xl shadow-lg p-8">
+             <h4 className="text-2xl font-bold text-gray-900 mb-6 text-center">📊 Additional Features</h4>
+             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+               <div className="text-center p-4 rounded-xl bg-yellow-50 border-2 border-yellow-200">
+                 <div className="text-3xl mb-2">📍</div>
+                 <div className="font-semibold text-yellow-700 mb-1">Entry/Exit Points</div>
+                 <div className="text-sm text-gray-600">Specific price levels</div>
+               </div>
+               <div className="text-center p-4 rounded-xl bg-red-50 border-2 border-red-200">
+                 <div className="text-3xl mb-2">🛡️</div>
+                 <div className="font-semibold text-red-700 mb-1">Stop Loss/Take Profit</div>
+                 <div className="text-sm text-gray-600">Risk management levels</div>
+               </div>
+               <div className="text-center p-4 rounded-xl bg-green-50 border-2 border-green-200">
+                 <div className="text-3xl mb-2">📈</div>
+                 <div className="font-semibold text-green-700 mb-1">Risk/Reward Ratio</div>
+                 <div className="text-sm text-gray-600">Trade evaluation</div>
+               </div>
+               <div className="text-center p-4 rounded-xl bg-blue-50 border-2 border-blue-200">
+                 <div className="text-3xl mb-2">📏</div>
+                 <div className="font-semibold text-blue-700 mb-1">Position Sizing</div>
+                 <div className="text-sm text-gray-600">Based on risk profile</div>
+               </div>
+             </div>
+           </div>
+         </div>
+       </section>
+
+        {/* AIScore Saham IDX Direct */}
+        <section className="bg-gradient-to-r from-indigo-50 via-blue-50 to-cyan-50 py-16 px-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-12">
+              <h3 className="text-3xl font-bold text-gray-900 mb-4">🎯 AIScore Saham IDX Direct</h3>
+              <p className="text-lg text-gray-700 max-w-3xl mx-auto">Platform analisis AI khusus saham Indonesia dengan data real-time dari IDX Direct. Dapatkan skor analitis, prediksi, dan rekomendasi saham secara instan.</p>
             </div>
-          ))}
-        </div>
-      </section>
+
+            {/* Feature Cards */}
+            <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+              <h4 className="text-2xl font-bold text-gray-900 mb-6 text-center">⚡ Fitur Utama AIScore Saham</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="text-center p-4 rounded-xl bg-green-50 border-2 border-green-200 hover:border-green-400 transition">
+                  <div className="text-4xl mb-3">🤖</div>
+                  <div className="font-semibold text-green-700 mb-2">AI Scoring</div>
+                  <div className="text-sm text-gray-600">Skor analitis berbasis Machine Learning untuk setiap saham</div>
+                </div>
+                <div className="text-center p-4 rounded-xl bg-blue-50 border-2 border-blue-200 hover:border-blue-400 transition">
+                  <div className="text-4xl mb-3">📊</div>
+                  <div className="font-semibold text-blue-700 mb-2">Data IDX Direct</div>
+                  <div className="text-sm text-gray-600">Data real-time dan historis dari bursa Indonesia</div>
+                </div>
+                <div className="text-center p-4 rounded-xl bg-purple-50 border-2 border-purple-200 hover:border-purple-400 transition">
+                  <div className="text-4xl mb-3">🎯</div>
+                  <div className="font-semibold text-purple-700 mb-2">Rekomendasi Saham</div>
+                  <div className="text-sm text-gray-600">Saran beli/jual/tahan berdasarkan analisis mendalam</div>
+                </div>
+                <div className="text-center p-4 rounded-xl bg-yellow-50 border-2 border-yellow-200 hover:border-yellow-400 transition">
+                  <div className="text-4xl mb-3">📈</div>
+                  <div className="font-semibold text-yellow-700 mb-2">Teknikal</div>
+                  <div className="text-sm text-gray-600">Indikator teknikal lengkap dan pattern recognition</div>
+                </div>
+                <div className="text-center p-4 rounded-xl bg-red-50 border-2 border-red-200 hover:border-red-400 transition">
+                  <div className="text-4xl mb-3">📋</div>
+                  <div className="font-semibold text-red-700 mb-2">Fundamental</div>
+                  <div className="text-sm text-gray-600">Analisis laporan keuangan dan valuasi saham</div>
+                </div>
+                <div className="text-center p-4 rounded-xl bg-cyan-50 border-2 border-cyan-200 hover:border-cyan-400 transition">
+                  <div className="text-4xl mb-3">⚡</div>
+                  <div className="font-semibold text-cyan-700 mb-2">Cepat & Akurat</div>
+                  <div className="text-sm text-gray-600">Hasil analisis dalam hitungan detik</div>
+                </div>
+              </div>
+            </div>
+
+            {/* CTA Button */}
+            <div className="text-center">
+              <a 
+                href="https://saham.mytriv.com" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-indigo-600 via-blue-500 to-cyan-500 text-white font-semibold rounded-xl shadow-lg hover:opacity-90 transition text-lg"
+              >
+                🚀 Buka AIScore Saham 
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </a>
+              <p className="mt-4 text-sm text-gray-600">Buka di tab baru • Gratis akses sementara</p>
+            </div>
+          </div>
+        </section>
+
+       {/* Metode Analisis AI */}
+       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
+         <h3 className="text-2xl font-bold text-center text-gray-900">Metode Analisis & Prediksi</h3>
+         <p className="text-center text-gray-600 mt-2">Dari indikator klasik hingga Deep Learning — semuanya dalam satu platform.</p>
+         <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+           {aiMethods.map((m, i) => (
+             <div key={i} className={`p-5 bg-white rounded-xl shadow border ${m.c}`}>
+               <div className="font-semibold">{m.t}</div>
+               <p className="mt-2 text-sm text-gray-600">{m.d}</p>
+             </div>
+           ))}
+         </div>
+       </section>
 
       {/* Sentimen & Sample Viz */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 pb-4">

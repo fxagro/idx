@@ -1,0 +1,19 @@
+{
+  "recon_date": "2026-05-26",
+  "phase": "journal_audit",
+  "timestamp": "2026-05-26T05:32:04.672640",
+  "total_entries": 225,
+  "total_debit": 638987000.0,
+  "total_credit": 640055820.4,
+  "is_balanced": false,
+  "imbalances": [
+    {
+      "type": "UNBALANCED_JOURNAL",
+      "total_debit": 638987000.0,
+      "total_credit": 640055820.4,
+      "difference": -1068820.4,
+      "severity": "CRITICAL"
+    }
+  ],
+  "pending_entries": 0
+}

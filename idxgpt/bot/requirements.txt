@@ -35,6 +35,11 @@ vaderSentiment>=3.3.2
 # Technical analysis
 ta-lib>=0.4.25
 
+# AI and Language Models
+langchain>=0.1.0
+langchain-openai>=0.0.5
+openai>=1.0.0
+
 # Development and testing
 pytest>=7.4.0
 pytest-asyncio>=0.21.0

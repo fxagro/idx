@@ -10,3 +10,4 @@ build/
 .cache/
 .tmp/
 db/stock.sql
+server/logs/
